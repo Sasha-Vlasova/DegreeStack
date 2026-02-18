@@ -1,7 +1,11 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./Navbar";
 import Home from "./Home";
-import About from "./About";
+import About from "../pages/About";
+import Authorization from "../pages/Authorization"; 
+import SignUp from "../pages/SignUp";
+import LogIn from "../pages/LogIn";
+
 
 function App() {
   return (
@@ -10,6 +14,10 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/authorization" element={<Authorization />}>
+          <Route path="login" element={<LogIn />} />
+          <Route path="signup" element={<SignUp />} />
+        </Route>
       </Routes>
     </Router>
   );
