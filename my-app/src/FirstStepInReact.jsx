@@ -1,4 +1,4 @@
-function App() {
+function FirstStepInReact() {
   return (
     <div>
       <h1>Hello World</h1>
@@ -7,4 +7,4 @@ function App() {
   );
 }
 
-export default App;
+export default FirstStepInReact;
