@@ -1,4 +1,6 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+
+
 import Navbar from "./components/Navbar";
 import Home from "./Home";
 import About from "./pages/About";
@@ -10,14 +12,15 @@ import LogIn from "./pages/LogIn";
 function App() {
   return (
     <Router>
-      <Navbar />   {/* <-- this will show links on every page */}
+      <Navbar />   
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
-        <Route path="/authorization" element={<Authorization />}>
-          <Route path="login" element={<LogIn />} />
-          <Route path="signup" element={<SignUp />} />
-        </Route>
+
+        <Route path="/authorization" element={<Authorization />} />
+        <Route path="/authorization/login" element={<LogIn />} />
+        <Route path="/authorization/signup" element={<SignUp />} />
+
       </Routes>
     </Router>
   );
