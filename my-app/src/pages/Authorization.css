@@ -1,0 +1,30 @@
+/* Full page background */
+.home {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
+  padding-top: 70px; /* space for fixed navbar */
+  color: white;
+}
+
+.auth-container {
+  text-align: center;
+  margin-top: 500px;
+}
+
+.auth-buttons {
+  margin-top: 20px;
+}
+
+.auth-buttons button {
+  margin: 10px;
+  padding: 10px 20px;
+  background-color:#1e3c72;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.auth-buttons button:hover {
+  background-color: #1e3c72;
+}
