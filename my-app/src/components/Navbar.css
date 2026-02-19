@@ -1,0 +1,14 @@
+.nav {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  padding: 0 2rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+}
