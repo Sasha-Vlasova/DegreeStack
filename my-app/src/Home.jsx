@@ -24,7 +24,7 @@ function Home() {
             <span>- Emma</span>
           </div>
           <div className="testimonial-card">
-            "Helped me build my skills fast."
+            "Helped me find an internship!"
             <span>- Michael</span>
           </div>
           <div className="testimonial-card">

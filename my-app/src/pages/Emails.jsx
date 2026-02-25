@@ -2,7 +2,7 @@ function Emails() {
   return (
     <div className="home">
       <section className="hero">
-        <h2>Emails Page</h2>
+        <h1>Emails Page</h1>
       </section>
     </div>
   );

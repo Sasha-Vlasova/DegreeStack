@@ -2,8 +2,9 @@ function Profile() {
   return (
     <div className="home">
     <section className="hero">
-      <h2>Profile Page</h2>
+      <h1>Profile Page</h1>
     </section>
+
     </div>
   );
 }

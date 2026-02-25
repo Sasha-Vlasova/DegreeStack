@@ -2,7 +2,7 @@ function Resume() {
   return (
     <div className="home">
       <section className="hero">
-        <h2>Resume Page</h2>
+        <h1>Resume Page</h1>
       </section>
     </div>
   );

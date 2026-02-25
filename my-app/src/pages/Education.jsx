@@ -4,7 +4,7 @@ function Education() {
   return (
     <div className="home">
       <section className="hero">
-        <h2>Education Page</h2>
+        <h1>Education Page</h1>
       </section>
     </div>
   );

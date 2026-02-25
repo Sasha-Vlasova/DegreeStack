@@ -2,7 +2,7 @@ function Research() {
   return (
     <div className="home">
       <section className="hero">
-        <h2>Research Page</h2>
+        <h1>Research Page</h1>
       </section>
     </div>
   );
