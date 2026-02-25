@@ -1,7 +1,9 @@
 function Resume() {
   return (
-    <div>
-      <h2>Resume Page</h2>
+    <div className="home">
+      <section className="hero">
+        <h2>Resume Page</h2>
+      </section>
     </div>
   );
 }

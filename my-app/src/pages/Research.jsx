@@ -1,7 +1,9 @@
 function Research() {
   return (
-    <div>
-      <h2>Research Page</h2>
+    <div className="home">
+      <section className="hero">
+        <h2>Research Page</h2>
+      </section>
     </div>
   );
 }

@@ -1,7 +1,9 @@
 function Profile() {
   return (
-    <div>
+    <div className="home">
+    <section className="hero">
       <h2>Profile Page</h2>
+    </section>
     </div>
   );
 }
