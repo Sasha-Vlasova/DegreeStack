@@ -12,6 +12,7 @@ import Education from "./pages/Education";
 import Resume from "./pages/Resume";
 import Emails from "./pages/Emails";
 import Profile from "./pages/Profile";
+import Footer from './components/Footer';
 import './App.css';
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
         </Routes>
       </div>
+      <Footer />
     </Router>
   );
 }
