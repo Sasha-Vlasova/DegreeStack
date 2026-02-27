@@ -1,0 +1,8 @@
+.signup-page {
+  min-height: 100vh; /* full viewport height */
+  display: flex;
+  justify-content: center;
+  align-items: center; /* center card vertically */
+  background: linear-gradient(135deg, #1e3c72, #2a5298); /* page background */
+  padding: 2rem;
+}

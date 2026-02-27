@@ -5,7 +5,6 @@ import Navbar from "./components/Navbar";
 import Home from "./Home";
 import Authorization from "./pages/Authorization"; 
 import SignUp from "./pages/SignUp";
-import LogIn from "./pages/LogIn";
 import Careers from "./pages/Careers";
 import Research from "./pages/Research";
 import Education from "./pages/Education";
@@ -24,8 +23,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/authorization" element={<Authorization />} />
-          <Route path="/authorization/login" element={<LogIn />} />
-          <Route path="/authorization/signup" element={<SignUp />} />
+          <Route path="/signup" element={<SignUp />} />
           <Route path="/careers" element={<Careers />} />
           <Route path="/research" element={<Research />} />
           <Route path="/education" element={<Education />} />
