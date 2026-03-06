@@ -1,6 +1,47 @@
-.home {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #1e3c72, #2a5298);
-  padding-top: 10px; /* space for fixed navbar */
+.education-page {
+  max-width: 900px;
+  margin: 50px auto;
+  padding: 20px;
+  color: #fff;
+}
+
+.search-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.search-filters input {
+  flex: 1 1 300px;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+}
+
+.search-filters select {
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+}
+
+.search-filters button {
+  padding: 12px 20px;
+  background-color: #1e3c72;
   color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.search-filters button:hover {
+  background-color: #2a5298;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
