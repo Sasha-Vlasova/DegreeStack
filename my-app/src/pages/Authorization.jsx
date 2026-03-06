@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
-import "./Authorization.css";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../supabase";
+import "./Authorization.css";
 
 function Authorization() {
   const navigate = useNavigate();
@@ -9,7 +9,84 @@ function Authorization() {
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
+  const [user, setUser] = useState(null);
 
+  // -------------------------
+  // Ensure profile exists
+  // -------------------------
+  const ensureProfile = async (user) => {
+    if (!user) return;
+
+    const { data: existingProfile, error: selectError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (selectError && selectError.code !== "PGRST116") {
+      console.error("Error checking profile:", selectError.message);
+      return;
+    }
+
+    if (!existingProfile) {
+      const { data: newProfile, error: insertError } = await supabase
+        .from("profiles")
+        .insert([{ id: user.id, email: user.email }])
+        .select()
+        .single();
+
+      if (insertError) console.error("Error creating profile:", insertError.message);
+      else console.log("Profile created for user:", newProfile);
+    }
+  };
+
+  // -------------------------
+  // Handle auth state
+  // -------------------------
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSessionFromUrl({ storeSession: true });
+      const currentUser = session?.user ?? null;
+
+      if (currentUser) {
+        setUser(currentUser);
+        await ensureProfile(currentUser);
+        navigate("/profile");
+      } else {
+        const { data: { session: activeSession } } = await supabase.auth.getSession();
+        if (activeSession?.user) {
+          setUser(activeSession.user);
+          await ensureProfile(activeSession.user);
+          navigate("/profile");
+        }
+      }
+    };
+
+    checkSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) await ensureProfile(currentUser);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, [navigate]);
+
+  // -------------------------
+  // Google login
+  // -------------------------
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/profile" },
+    });
+    if (error) console.error("Google login error:", error.message);
+  };
+
+  // -------------------------
+  // Email/password login
+  // -------------------------
   const validate = () => {
     let tempErrors = {};
     if (!email.trim()) tempErrors.email = "Email is required";
@@ -24,29 +101,30 @@ function Authorization() {
     if (!validate()) return;
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { persistSession: remember },
+      });
+
       if (authError) {
         alert("Login failed: " + authError.message);
         return;
       }
 
-      // Fetch user profile
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", authData.user.id)
-        .single();
-
-      if (profileError) console.warn("Profile not found", profileError.message);
-
-      alert(`Login successful!\nWelcome, ${profile?.email || email}`);
-      navigate("/"); // Redirect after login
+      await ensureProfile(authData.user);
+      setUser(authData.user);
+      alert(`Login successful!\nWelcome, ${authData.user.email}`);
+      navigate("/profile");
     } catch (err) {
       console.error(err);
       alert("An unexpected error occurred");
     }
   };
 
+  // -------------------------
+  // JSX
+  // -------------------------
   return (
     <div style={styles.page}>
       <div style={styles.card}>
@@ -84,6 +162,49 @@ function Authorization() {
           <button type="submit" style={styles.button}>Log in</button>
         </form>
 
+        <div style={{ textAlign: "center", margin: "1rem 0", color: "#6b7280" }}>──────── OR ────────</div>
+
+        <button
+          onClick={signInWithGoogle}
+          style={{
+            width: "100%",
+            padding: "0.75rem",
+            fontSize: "1rem",
+            fontWeight: 600,
+            color: "#fff",
+            backgroundColor: "#4285F4",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg"
+            alt="G"
+            style={{ width: "20px", height: "20px" }}
+          />
+          Continue with Google
+        </button>
+
+        {user && (
+          <div style={{ marginTop: "1rem", textAlign: "center" }}>
+            Logged in as: <strong>{user.email}</strong>
+            <button
+              style={{ marginLeft: "1rem" }}
+              onClick={async () => {
+                await supabase.auth.signOut();
+                setUser(null);
+              }}
+            >
+              Sign Out
+            </button>
+          </div>
+        )}
+
         <div style={styles.footerText}>
           Don&apos;t have an account? <Link to="/signup" style={styles.signUpLink}>Sign up</Link>
         </div>
@@ -92,6 +213,9 @@ function Authorization() {
   );
 }
 
+// -------------------------
+// STYLES
+// -------------------------
 const styles = {
   page: { minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center", backgroundColor: "#1e3c72", padding: "2rem" },
   card: { backgroundColor: "white", padding: "2.5rem 3rem", borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", maxWidth: "400px", width: "100%" },
