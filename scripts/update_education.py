@@ -1,60 +1,57 @@
+import os
 import requests
-import hashlib
+from supabase import create_client, Client
 
-URL = "https://www.wisconsin.edu/wp-json/uws-program-finder/v1/programs"
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-def normalize_title(title):
-    return title.lower().replace("&", "and").strip()
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise Exception("Supabase URL or KEY not set in environment variables.")
 
-def make_id(p):
-    key = f"{normalize_title(p['title'])}-{p['program_level']}-{p['program_type']}"
-    return hashlib.md5(key.encode()).hexdigest()
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def fetch_data():
-    response = requests.get(URL)
-    response.raise_for_status()
-    return response.json()["data"]
+url = "https://www.wisconsin.edu/wp-json/uws-program-finder/v1/programs"
+response = requests.get(url)
+if response.status_code != 200:
+    raise Exception(f"Failed to fetch data: {response.status_code}")
 
-def transform(programs):
-    merged = {}
+data = response.json()
+programs = data.get("data", [])
 
-    for p in programs:
-        key = (
-            normalize_title(p["title"]),
-            p["program_level"],
-            p["program_type"]
-        )
+print(f"Fetched {len(programs)} rows")
 
-        if key not in merged:
-            merged[key] = {
-                "id": make_id(p),
-                "title": p["title"],
-                "program_level": p["program_level"],
-                "program_type": p["program_type"],
-                "delivery": p["course_delivery"],
-                "campuses": set(p["campuses"])
-            }
-        else:
-            merged[key]["campuses"].update(p["campuses"])
+merged = {}
+for p in programs:
+    key = (p["title"], p["program_level"])
+    if key not in merged:
+        merged[key] = p.copy()
+        merged[key]["campuses"] = set(p["campuses"])
+    else:
+        merged[key]["campuses"].update(p["campuses"])
 
-    # convert sets → lists
-    return [
-        {
-            **p,
-            "campuses": list(p["campuses"])
-        }
-        for p in merged.values()
-    ]
+for p in merged.values():
+    p["campuses"] = list(p["campuses"])
 
-def main():
-    raw = fetch_data()
-    cleaned = transform(raw)
+bulk_records = []
+for p in merged.values():
+    record = {
+        "title": p["title"],
+        "program_level": p["program_level"],
+        "course_delivery": p.get("course_delivery"),
+        "program_type": p.get("program_type"),
+        "career_clusters": p.get("career_clusters"),
+        "submajors": p.get("submajors"),
+        "keywords": p.get("keywords"),
+        "campuses": p["campuses"],
+    }
+    bulk_records.append(record)
 
-    print(f"Fetched {len(raw)} rows")
-    print(f"Cleaned to {len(cleaned)} unique programs\n")
+result = supabase.table("programs").upsert(bulk_records, on_conflict=["title", "program_level"]).execute()
 
-    for p in cleaned[:10]:
-        print(p["title"], p["campuses"])
+if result.get("status_code") and 200 <= result["status_code"] < 300:
+    print(f"Successfully upserted {len(bulk_records)} programs")
+else:
+    print("Failed to upsert programs")
+    print(result)
 
-if __name__ == "__main__":
-    main()
+print("Update complete!")

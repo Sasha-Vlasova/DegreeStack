@@ -9,6 +9,10 @@ jobs:
   run-script:
     runs-on: ubuntu-latest
 
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -19,7 +23,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests supabase
 
       - name: Run script
         run: python scripts/update_education.py
