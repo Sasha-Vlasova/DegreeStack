@@ -1,0 +1,25 @@
+name: Update Education Data
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # runs daily at 6am UTC
+  workflow_dispatch:     # allows manual run
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run script
+        run: python scripts/update_education.py
