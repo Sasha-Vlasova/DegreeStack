@@ -54,7 +54,7 @@ try:
     print(f"Returned data length: {len(result.data) if result.data else 0}")
 
 except Exception as e:
-print("Upsert failed:", str(e))
+    print("Upsert failed:", str(e))
     if hasattr(e, 'code'):
         print(f"  Code: {getattr(e, 'code')}")
     if hasattr(e, 'message'):
