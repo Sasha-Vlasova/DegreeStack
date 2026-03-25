@@ -19,21 +19,87 @@ programs = data.get("data", [])
 
 print(f"Fetched {len(programs)} rows")
 
-merged = {}
+# Map to human-readable levels and choose only Masters/Doctorate/Education Specialist.
+level_name_map = {
+    "A": "Associate",
+    "B": "Bachelors",
+    "D": "Doctorate",
+    "M": "Masters",
+    "P": "Post Bachelors",
+    "S": "Education Specialist",
+    "Y": "Certificate",
+}
+allowed_levels = {"Masters", "Doctorate", "Education Specialist", "Certificate", "Post Bachelors"}
+
+campus_map = {
+    "MSN": "University of Wisconsin Madison",
+    "MIL": "University of Wisconsin Milwaukee",
+    "GBY": "University of Wisconsin Green Bay",
+    "EAU": "University of Wisconsin Eau Claire",
+    "LAC": "University of Wisconsin La Crosse",
+    "OSH": "University of Wisconsin Oshkosh",
+    "PLT": "University of Wisconsin Platteville",
+    "RVF": "University of Wisconsin River Falls",
+    "STO": "University of Wisconsin Stout",
+    "WTW": "University of Wisconsin Whitewater",
+    "PKS": "University of Wisconsin Parkside",
+    "STP": "University of Wisconsin Stevens Point",
+    "SUP": "University of Wisconsin Superior",
+    
+    # Add known codes as needed.
+}
+
+filtered_programs = []
 for p in programs:
+    raw_level = (p.get("program_level") or p.get("Program Level") or "").strip()
+    if not raw_level:
+        continue
+
+    normalized = level_name_map.get(raw_level.upper(), raw_level)
+    if normalized not in allowed_levels:
+        continue
+
+    p = p.copy()
+    p["program_level"] = normalized
+
+    campuses_raw = p.get("campuses", [])
+
+    normalized_campuses = []
+    for c in campuses_raw:
+        code = c.strip().upper()
+        name = campus_map.get(code)
+
+        if name:
+            normalized_campuses.append({
+                "code": code,
+                "name": name
+            })
+
+    new_p = p.copy()
+    new_p["program_level"] = normalized
+    new_p["campuses"] = normalized_campuses
+
+    filtered_programs.append(new_p)
+
+print(f"Filtered to {len(filtered_programs)} allowed rows")
+
+merged = {}
+for p in filtered_programs:
     key = (p["title"], p["program_level"])
     if key not in merged:
         merged[key] = p.copy()
-        merged[key]["campuses"] = set(p["campuses"])
+        merged[key]["campuses"] = {c["code"]: c for c in p["campuses"]}
     else:
-        merged[key]["campuses"].update(p["campuses"])
+        for c in p["campuses"]:
+            merged[key]["campuses"][c["code"]] = c
 
 for p in merged.values():
-    p["campuses"] = list(p["campuses"])
+    p["campuses"] = list(p["campuses"].values())
 
-bulk_records = []
+program_records = []
+
 for p in merged.values():
-    record = {
+    program_records.append({
         "title": p["title"],
         "program_level": p["program_level"],
         "course_delivery": p.get("course_delivery"),
@@ -41,24 +107,54 @@ for p in merged.values():
         "career_clusters": p.get("career_clusters"),
         "submajors": p.get("submajors"),
         "keywords": p.get("keywords"),
-        "campuses": p["campuses"],
-    }
-    bulk_records.append(record)
+    })
 
+supabase.table("programs") \
+    .upsert(program_records, on_conflict="title,program_level") \
+    .execute()
 
-try:
-    result = supabase.table("programs").upsert(bulk_records,on_conflict="title,program_level",count="exact",returning="minimal").execute()
+print(f"Upserted {len(program_records)} programs")
 
-    affected = result.count if result.count is not None else "unknown (common with returning='minimal')"
-    print(f"Upsert complete — affected {affected} rows")
-    print(f"Returned data length: {len(result.data) if result.data else 0}")
+programs_db = supabase.table("programs") \
+    .select("id,title,program_level") \
+    .execute().data
 
-except Exception as e:
-    print("Upsert failed:", str(e))
-    if hasattr(e, 'code'):
-        print(f"  Code: {getattr(e, 'code')}")
-    if hasattr(e, 'message'):
-        print(f"  Message: {getattr(e, 'message')}")
-    raise
+program_lookup = {
+    (p["title"], p["program_level"]): p["id"]
+    for p in programs_db
+}
+all_campuses = {}
+
+for p in merged.values():
+    for c in p["campuses"]:
+        all_campuses[c["code"]] = c["name"]
+
+campus_records = [
+    {"code": code, "name": name}
+    for code, name in all_campuses.items()
+]
+
+supabase.table("campuses") \
+    .upsert(campus_records, on_conflict="code") \
+    .execute()
+
+print(f"Upserted {len(campus_records)} campuses")
+
+program_campus_links = []
+
+for p in merged.values():
+    program_id = program_lookup[(p["title"], p["program_level"])]
+
+    for c in p["campuses"]:
+        program_campus_links.append({
+            "program_id": program_id,
+            "campus_code": c["code"]
+        })
+
+supabase.table("program_campuses") \
+    .upsert(program_campus_links) \
+    .execute()
+
+print(f"Linked {len(program_campus_links)} program-campus relationships")
 
 print("Update complete!")
