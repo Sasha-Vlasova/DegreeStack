@@ -10,16 +10,15 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
 url = "https://www.wisconsin.edu/wp-json/uws-program-finder/v1/programs"
 response = requests.get(url)
 response.raise_for_status()
 
-data = response.json()
-programs = data.get("data", [])
+programs = response.json().get("data", [])
 
 print(f"Fetched {len(programs)} rows")
 
-# Map to human-readable levels and choose only Masters/Doctorate/Education Specialist.
 level_name_map = {
     "A": "Associate",
     "B": "Bachelors",
@@ -29,7 +28,14 @@ level_name_map = {
     "S": "Education Specialist",
     "Y": "Certificate",
 }
-allowed_levels = {"Masters", "Doctorate", "Education Specialist", "Certificate", "Post Bachelors"}
+
+allowed_levels = {
+    "Masters",
+    "Doctorate",
+    "Education Specialist",
+    "Certificate",
+    "Post Bachelors",
+}
 
 campus_map = {
     "MSN": "University of Wisconsin Madison",
@@ -45,13 +51,12 @@ campus_map = {
     "PKS": "University of Wisconsin Parkside",
     "STP": "University of Wisconsin Stevens Point",
     "SUP": "University of Wisconsin Superior",
-    
-    # Add known codes as needed.
 }
 
 filtered_programs = []
+
 for p in programs:
-    raw_level = (p.get("program_level") or p.get("Program Level") or "").strip()
+    raw_level = (p.get("program_level") or "").strip()
     if not raw_level:
         continue
 
@@ -59,47 +64,41 @@ for p in programs:
     if normalized not in allowed_levels:
         continue
 
-    p = p.copy()
-    p["program_level"] = normalized
+    campuses_raw = p.get("campuses") or []
 
-    campuses_raw = p.get("campuses", [])
-
-    normalized_campuses = []
+    campuses = []
     for c in campuses_raw:
+        if not c:
+            continue
         code = c.strip().upper()
         name = campus_map.get(code)
-
         if name:
-            normalized_campuses.append({
-                "code": code,
-                "name": name
-            })
+            campuses.append({"code": code, "name": name})
 
-    new_p = p.copy()
-    new_p["program_level"] = normalized
-    new_p["campuses"] = normalized_campuses
+    filtered_programs.append({
+        "title": p.get("title"),
+        "program_level": normalized,
+        "course_delivery": p.get("course_delivery"),
+        "program_type": p.get("program_type"),
+        "career_clusters": p.get("career_clusters"),
+        "submajors": p.get("submajors"),
+        "keywords": p.get("keywords"),
+        "program_url": p.get("program_url") or "",
+        "campuses": campuses
+    })
 
-    filtered_programs.append(new_p)
+print(f"Filtered to {len(filtered_programs)} programs")
 
-print(f"Filtered to {len(filtered_programs)} allowed rows")
 
-merged = {}
+unique_programs = {}
+
 for p in filtered_programs:
-    key = (p["title"], p["program_level"])
-    if key not in merged:
-        merged[key] = p.copy()
-        merged[key]["campuses"] = {c["code"]: c for c in p["campuses"]}
-    else:
-        for c in p["campuses"]:
-            merged[key]["campuses"][c["code"]] = c
+    key = (p["title"], p["program_level"], p["program_url"])
+    if key not in unique_programs:
+        unique_programs[key] = p
 
-for p in merged.values():
-    p["campuses"] = list(p["campuses"].values())
-
-program_records = []
-
-for p in merged.values():
-    program_records.append({
+program_records = [
+    {
         "title": p["title"],
         "program_level": p["program_level"],
         "course_delivery": p.get("course_delivery"),
@@ -107,25 +106,34 @@ for p in merged.values():
         "career_clusters": p.get("career_clusters"),
         "submajors": p.get("submajors"),
         "keywords": p.get("keywords"),
-    })
+        "program_url": p.get("program_url"),
+    }
+    for p in unique_programs.values()
+]
+
 
 supabase.table("programs") \
-    .upsert(program_records, on_conflict="title,program_level") \
+    .upsert(program_records, on_conflict="title,program_level,program_url") \
     .execute()
 
 print(f"Upserted {len(program_records)} programs")
 
+
 programs_db = supabase.table("programs") \
-    .select("id,title,program_level") \
-    .execute().data
+    .select("id,title,program_level,program_url") \
+    .limit(10000) \
+    .execute() \
+    .data
 
 program_lookup = {
-    (p["title"], p["program_level"]): p["id"]
+    (p["title"], p["program_level"], p["program_url"] or ""): p["id"]
     for p in programs_db
 }
+
+
 all_campuses = {}
 
-for p in merged.values():
+for p in filtered_programs:
     for c in p["campuses"]:
         all_campuses[c["code"]] = c["name"]
 
@@ -140,21 +148,38 @@ supabase.table("campuses") \
 
 print(f"Upserted {len(campus_records)} campuses")
 
-program_campus_links = []
 
-for p in merged.values():
-    program_id = program_lookup[(p["title"], p["program_level"])]
+links = []
+
+for p in filtered_programs:
+    key = (p["title"], p["program_level"], p["program_url"])
+    program_id = program_lookup.get(key)
+
+    if not program_id:
+        continue
 
     for c in p["campuses"]:
-        program_campus_links.append({
+        links.append({
             "program_id": program_id,
             "campus_code": c["code"]
         })
 
-supabase.table("program_campuses") \
-    .upsert(program_campus_links) \
-    .execute()
+# Deduplicate
+seen = set()
+final_links = []
 
-print(f"Linked {len(program_campus_links)} program-campus relationships")
+for l in links:
+    key = (l["program_id"], l["campus_code"])
+    if key not in seen:
+        seen.add(key)
+        final_links.append(l)
+
+
+if final_links:
+    supabase.table("program_campuses") \
+        .upsert(final_links, on_conflict="program_id,campus_code") \
+        .execute()
+
+print(f"Linked {len(final_links)} relationships")
 
 print("Update complete!")

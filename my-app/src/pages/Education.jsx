@@ -15,7 +15,8 @@ function Education() {
   });
 
   const [results, setResults] = useState([]);
-
+  const [campuses, setCampuses] = useState([]);
+  const [fields, setFields] = useState([]);
   // Handle typing in search box
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
@@ -41,33 +42,35 @@ function Education() {
         title,
         program_level,
         program_type,
+        program_url,
         career_clusters,
-        campuses!inner (
-          code,
-          name
+        program_campuses!inner (
+          campus_code,
+          campuses (
+            code,
+            name
+          )
         )
       `)
 
+    if (searchQuery.trim() !== "") {
+      const phrase = `"${searchQuery.trim()}"`;
+      query = query.textSearch('title,keywords', phrase);
+    }
 
-    if (searchQuery && searchQuery.trim() !== "") {
-      query = query.or(`
-        title.ilike.%${searchQuery}%,
-        keywords.ilike.%${searchQuery}%
-      `);
+    if (filters.school) {
+      query = query.filter("program_campuses.campus_code", "eq", filters.school);
+    }
+
+    if (filters.field_of_study) {
+      query = query.contains("career_clusters", [filters.field_of_study]);
     }
 
     if (filters.type) {
       query = query.eq("program_level", filters.type);
     }
 
-    if (filters.school) {
-      query = query.eq("campuses.name", filters.school);
-    }
 
-    // 🔍 Filter by field of study (career_clusters array)
-    //if (filters.field_of_study && filters.field_of_study !== "") {
-    //  query = query.contains("career_clusters", [filters.field_of_study]);
-    //}
 
     const { data, error } = await query;
     console.log("RAW DATA:", data);
@@ -81,10 +84,53 @@ function Education() {
 
     setLoading(false);
   };
+  useEffect(() => {
+    const fetchCampuses = async () => {
+      const { data, error } = await supabase
+        .from("campuses")
+        .select("code, name")
+        .order("name");
+
+      if (error) {
+        console.error("Error fetching campuses:", error);
+      } else {
+        setCampuses(data);
+      }
+    };
+
+    fetchCampuses();
+  }, []);
+
+  useEffect(() => {
+  const fetchFields = async () => {
+    const { data, error } = await supabase
+      .from("programs")
+      .select("career_clusters");
+
+    if (error) {
+      console.error("Error fetching fields:", error);
+      return;
+    }
+
+    // Flatten + remove duplicates
+    const allClusters = data
+      .flatMap((p) => p.career_clusters || []);
+
+    const uniqueClusters = [...new Set(allClusters)];
+
+    setFields(uniqueClusters);
+  };
+
+  fetchFields();
+  }, []);
 
   // Auto-run search when filters or query change
   useEffect(() => {
+  const delaySearch = setTimeout(() => {
     handleSearch();
+  }, 300);
+
+  return () => clearTimeout(delaySearch);
   }, [searchQuery, filters]);
 
   return (
@@ -94,7 +140,7 @@ function Education() {
       <div className="search-filters">
         <input
           type="text"
-          placeholder="Search for a program, school, or keyword..."
+          placeholder="Search for a program, or keyword..."
           value={searchQuery}
           onChange={handleSearchChange}
         />
@@ -104,11 +150,13 @@ function Education() {
           value={filters.field_of_study}
           onChange={handleFilterChange}
         >
-          <option value="">All Field of Studies</option>
-          <option value="science">Science</option>
-          <option value="technology">Technology</option>
-          <option value="engineering">Engineering</option>
-          <option value="mathematics">Mathematics</option>
+          <option value="">All Fields</option>
+
+          {fields.map((field) => (
+            <option key={field} value={field}>
+              {field}
+            </option>
+          ))}
         </select>
 
         <select
@@ -130,9 +178,12 @@ function Education() {
           onChange={handleFilterChange}
         >
           <option value="">All Schools</option>
-          <option value="University of Wisconsin Madison">UW Madison</option>
-          <option value="University of Wisconsin Milwaukee">UW Milwaukee</option>
-          <option value="University of Wisconsin Green Bay">UW Green Bay</option>
+
+          {campuses.map((campus) => (
+            <option key={campus.code} value={campus.code}>
+              {campus.name}
+            </option>
+          ))}
         </select>
 
         <select
@@ -166,12 +217,29 @@ function Education() {
 
               <p>
                 <strong>Campuses:</strong>{" "}
-                {item.campuses?.map((c) => c.name).join(", ")}
+                {item.program_campuses
+                  ?.map((pc) => pc.campuses?.name)
+                  .filter(Boolean)
+                  .join(", ")}
               </p>
 
               {item.program_type && (
                 <p>
                   <strong>Type:</strong> {item.program_type}
+                </p>
+              )}
+
+              {item.program_url && (
+                <p>
+                  <strong>Website:</strong>{" "}
+                  <a
+                    href={item.program_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="program-link"
+                  >
+                    Visit Program
+                  </a>
                 </p>
               )}
             </div>

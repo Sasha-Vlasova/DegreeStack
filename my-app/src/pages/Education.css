@@ -79,3 +79,13 @@
     min-width: auto;
   }
 }
+
+.program-link {
+  color: #007bff; 
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.program-link:hover {
+  text-decoration: underline;
+}
