@@ -1,129 +1,102 @@
-import { Link, useNavigate } from "react-router-dom";
-import React, { useState, useEffect } from "react";
-import { supabase } from "../supabase";
-import "./Authorization.css";
+import { Link, useNavigate } from "react-router-dom"; // link is needed for navigation without reloading page, useNavigate is programmic navigation = redirection after log in
+import React, { useState, useEffect } from "react"; //useState manages (stores) form and user state while useEffect runs logic when component loads
+import { supabase } from "../supabase"; //supabase connection -? handles auth and database
+import { useAuth } from "../AuthContext";
+import "./Authorization.css"; // styling
+
 
 function Authorization() {
-  const navigate = useNavigate();
+  //console.log("AUTH PAGE MOUNTED");
+  const navigate = useNavigate();  // gives a functuon navigate that let changing pages in the web
+  const { user, setUser, startLogoutTimer } = useAuth();// "global auth state"
+  // fields: 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
+  // validation:
   const [errors, setErrors] = useState({ email: "", password: "" });
-  const [user, setUser] = useState(null);
-
-  // -------------------------
-  // Ensure profile exists
-  // -------------------------
-  const ensureProfile = async (user) => {
-    if (!user) return;
-
-    const { data: existingProfile, error: selectError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-
-    if (selectError && selectError.code !== "PGRST116") {
-      console.error("Error checking profile:", selectError.message);
-      return;
-    }
-
-    if (!existingProfile) {
-      const { data: newProfile, error: insertError } = await supabase
-        .from("profiles")
-        .insert([{ id: user.id, email: user.email }])
-        .select()
-        .single();
-
-      if (insertError) console.error("Error creating profile:", insertError.message);
-      else console.log("Profile created for user:", newProfile);
-    }
-  };
-
-  // -------------------------
-  // Handle auth state
-  // -------------------------
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSessionFromUrl({ storeSession: true });
-      const currentUser = session?.user ?? null;
-
-      if (currentUser) {
-        setUser(currentUser);
-        await ensureProfile(currentUser);
-        navigate("/profile");
-      } else {
-        const { data: { session: activeSession } } = await supabase.auth.getSession();
-        if (activeSession?.user) {
-          setUser(activeSession.user);
-          await ensureProfile(activeSession.user);
-          navigate("/profile");
-        }
-      }
-    };
-
-    checkSession();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) await ensureProfile(currentUser);
-    });
-
-    return () => listener.subscription.unsubscribe();
-  }, [navigate]);
-
-  // -------------------------
-  // Google login
-  // -------------------------
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/profile" },
-    });
-    if (error) console.error("Google login error:", error.message);
-  };
-
+  
   // -------------------------
   // Email/password login
   // -------------------------
   const validate = () => {
     let tempErrors = {};
-    if (!email.trim()) tempErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(email)) tempErrors.email = "Email is invalid";
+    if (!email.trim()) tempErrors.email = "Email is required"; // .trim removes spaces, if email empty, then an error
+    else if (!/\S+@\S+\.\S+/.test(email)) tempErrors.email = "Email is invalid"; // check if email looks like actual email/ regular, if it does not it produces the error
     if (!password) tempErrors.password = "Password is required";
     setErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
+    return Object.keys(tempErrors).length === 0; // return an array of errors if they are there, if not, then form is valid. basically if invalide then return
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-        options: { persistSession: remember },
+    localStorage.setItem("remember_me", remember ? "true" : "false");
+    
+    if (!remember) {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("sb-") && key.includes("auth")) {
+          localStorage.removeItem(key);
+        }
       });
+    }
+    
 
-      if (authError) {
-        alert("Login failed: " + authError.message);
-        return;
-      }
 
-      await ensureProfile(authData.user);
-      setUser(authData.user);
-      alert(`Login successful!\nWelcome, ${authData.user.email}`);
-      navigate("/profile");
-    } catch (err) {
-      console.error(err);
-      alert("An unexpected error occurred");
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { persistSession: remember },
+    });
+
+    if (error) {
+      alert("Login failed: " + error.message);
+      return;
+    }
+
+    // Create user_profiles row immediately after signup
+    await supabase
+    .from("user_profiles")
+    .insert({ user_id: authData.user.id });
+
+    setUser(authData.user);
+    startLogoutTimer();
+    navigate("/profile");
+  };
+
+  const signInWithGoogle = async () => {
+    // Save remember_me choice
+    localStorage.setItem("remember_me", remember ? "true" : "false");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: "https://crispy-space-umbrella-5gp779gr6j5ph4rqw-5173.app.github.dev/profile",
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+
+    if (error) {
+      alert("Google login failed: " + error.message);
     }
   };
 
+  
+      /*
+      await ensureProfile(authData.user); // check if user has a prof
+      setUser(authData.user);
+      alert(`Login successful!\nWelcome, ${authData.user.email}`); 
+      //navigate("/profile"); // move the user to profile page
+    } catch (err) {
+      console.error(err);
+      alert("An unexpected error occurred");
+    }*/
+
   // -------------------------
-  // JSX
+  // CSS
   // -------------------------
   return (
     <div style={styles.page}>
@@ -136,7 +109,10 @@ function Authorization() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={{ ...styles.input, borderColor: errors.email ? "#d32f2f" : "#ccc" }}
+            style={{
+              ...styles.input,
+              borderColor: errors.email ? "#d32f2f" : "#ccc",
+            }}
           />
           {errors.email && <div style={styles.error}>{errors.email}</div>}
 
@@ -145,7 +121,10 @@ function Authorization() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={{ ...styles.input, borderColor: errors.password ? "#d32f2f" : "#ccc" }}
+            style={{
+              ...styles.input,
+              borderColor: errors.password ? "#d32f2f" : "#ccc",
+            }}
           />
           {errors.password && <div style={styles.error}>{errors.password}</div>}
 
@@ -158,55 +137,22 @@ function Authorization() {
             />
             Remember me
           </label>
+          <button type="button" onClick={signInWithGoogle} style={styles.button}>
+            Continue with Google
+          </button>
+
+
 
           <button type="submit" style={styles.button}>Log in</button>
         </form>
 
-        <div style={{ textAlign: "center", margin: "1rem 0", color: "#6b7280" }}>──────── OR ────────</div>
-
-        <button
-          onClick={signInWithGoogle}
-          style={{
-            width: "100%",
-            padding: "0.75rem",
-            fontSize: "1rem",
-            fontWeight: 600,
-            color: "#fff",
-            backgroundColor: "#4285F4",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <img
-            src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg"
-            alt="G"
-            style={{ width: "20px", height: "20px" }}
-          />
-          Continue with Google
-        </button>
-
-        {user && (
-          <div style={{ marginTop: "1rem", textAlign: "center" }}>
-            Logged in as: <strong>{user.email}</strong>
-            <button
-              style={{ marginLeft: "1rem" }}
-              onClick={async () => {
-                await supabase.auth.signOut();
-                setUser(null);
-              }}
-            >
-              Sign Out
-            </button>
-          </div>
-        )}
+        
 
         <div style={styles.footerText}>
-          Don&apos;t have an account? <Link to="/signup" style={styles.signUpLink}>Sign up</Link>
+          Don&apos;t have an account?{" "}
+          <Link to="/signup" style={styles.signUpLink}>
+            Sign up
+          </Link>
         </div>
       </div>
     </div>

@@ -1,13 +1,16 @@
+
 import { Link, useNavigate } from "react-router-dom";
 import "./Authorization.css";
 import React, { useState } from "react";
 import { supabase } from "../supabase";
+import { useAuth } from "../AuthContext";
 
 function Signup() {
   const navigate = useNavigate();
+  const { setUser, startLogoutTimer } = useAuth();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
   const [errors, setErrors] = useState({ email: "", password: "" });
 
   const validate = () => {
@@ -23,6 +26,56 @@ function Signup() {
     e.preventDefault();
     if (!validate()) return;
 
+    const { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+    
+    if (signUpError) {
+      alert("Signup failed: " + signUpError.message);
+      return;
+    }
+
+
+    // Imediately signing in
+    const { data: authData, error: signInError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { persistSession: true }, // new user usually wants to stay logged in
+      });
+
+    if (signInError) {
+      alert("Auto login failed: " + signInError.message);
+      return;
+    }
+
+    setUser(authData.user);
+    startLogoutTimer();
+    navigate("/profile");
+  };
+
+  const signInWithGoogle = async () => {
+  // Google login should always persist session
+  localStorage.setItem("remember_me", "true");
+
+  const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin + "/profile",
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+
+    if (error) {
+      alert("Google login failed: " + error.message);
+    }
+  };
+
+    /*
     try {
       // Sign up user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
@@ -31,24 +84,16 @@ function Signup() {
         return;
       }
 
-      // Insert user into profiles table
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .insert([{ id: authData.user.id, email }]);
-
-      if (profileError) {
-        console.error(profileError);
-        alert("Signup succeeded, but failed to add user to table.");
-      } else {
-        alert("Signup successful! Please log in.");
-        navigate("/authorization");
-      }
+      alert("Signup successful! Please log in.");
+      navigate("/authorization");
+      
     } catch (err) {
       console.error(err);
       alert("An unexpected error occurred.");
-    }
-  };
+    }*/
 
+
+  // -------- CSS -------------
   return (
     <div style={styles.page}>
       <div style={styles.card}>
@@ -76,22 +121,22 @@ function Signup() {
             style={{ ...styles.input, borderColor: errors.password ? "#d32f2f" : "#ccc" }}
           />
           {errors.password && <div style={styles.error}>{errors.password}</div>}
-
-          <label style={styles.checkboxLabel}>
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-              style={styles.checkbox}
-            />
-            Remember me
-          </label>
-
+          
+          <button onClick={signInWithGoogle} style={styles.button}>
+            Continue with Google
+          </button>
+          
           <button type="submit" style={styles.button}>Sign up</button>
+        
+          
+
+        
         </form>
 
         <div style={styles.footerText}>
           Already have an account? <Link to="/authorization" style={styles.signUpLink}>Log in</Link>
+        
+        
         </div>
       </div>
     </div>

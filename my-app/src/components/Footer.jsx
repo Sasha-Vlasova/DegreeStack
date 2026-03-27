@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import "./Footer.css";
+import { useAuth } from "../AuthContext";
 
 function Footer() {
+  const { user } = useAuth();
+
   return (
     <footer className="footer">
       <div className="footer-left">
@@ -14,8 +17,11 @@ function Footer() {
       </div>
 
       <div className="footer-right">
-        <Link to="/authorization">LogIn/SignUp</Link>
-        <Link to="/profile">Profile</Link>
+        {!user ? (
+          <Link to="/authorization">LogIn/SignUp</Link>
+        ) : (
+          <Link to="/profile">Profile</Link>
+        )}
       </div>
     </footer>
   );

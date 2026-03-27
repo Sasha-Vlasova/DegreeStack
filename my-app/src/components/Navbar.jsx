@@ -1,7 +1,19 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./Navbar.css";
+import { useAuth } from "../AuthContext";
+import { supabase } from "../supabase";
 
 function Navbar() {
+  const { user, setUser, clearLogoutTimer } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    clearLogoutTimer();
+    setUser(null);
+    navigate("/authorization");
+  };
+
   return (
     <nav className="nav">
       <div className="nav-left">
@@ -14,8 +26,18 @@ function Navbar() {
       </div>
 
       <div className="nav-right">
-        <Link to="/authorization">LogIn/SignUp</Link>
-        <Link to="/profile">Profile</Link>
+        {!user ? (
+          <>
+            <Link to="/authorization">LogIn/SignUp</Link>
+          </>
+        ) : (
+          <>
+            <Link to="/profile">Profile</Link>
+            <button className="logout-btn" onClick={handleLogout}>
+              Sign Out
+            </button>
+          </>
+        )}
       </div>
     </nav>
   );
