@@ -63,7 +63,11 @@ function Education() {
     }
 
     if (filters.field_of_study) {
-      query = query.contains("career_clusters", [filters.field_of_study]);
+      query = query.filter(
+        "career_clusters",
+        "cs",
+        `[\"${filters.field_of_study}\"]`
+      );
     }
 
     if (filters.type) {
@@ -116,7 +120,7 @@ function Education() {
     const allClusters = data
       .flatMap((p) => p.career_clusters || []);
 
-    const uniqueClusters = [...new Set(allClusters)];
+    const uniqueClusters = [...new Set(allClusters.map(c => c.trim()))];
 
     setFields(uniqueClusters);
   };

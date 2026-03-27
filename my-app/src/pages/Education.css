@@ -1,7 +1,8 @@
 .education-page {
-  max-width: 900px;
+  width: 100%;
+  max-width: 1400px;
   margin: 50px auto;
-  padding: 20px;
+  padding: 20px 30px;
   color: #fff;
 }
 
@@ -14,14 +15,15 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   margin-bottom: 30px;
   flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .search-filters input {
-  flex: 1 1 auto;
-  min-width: 350px;
+  flex: 2 1 250px;
+  min-width: 150px;
   padding: 12px;
   border-radius: 8px;
   border: none;
@@ -29,7 +31,8 @@
 }
 
 .search-filters select {
-  flex: 0 0 160px;
+  flex: 1 1 120px;
+  min-width: 100px;
   padding: 12px;
   border-radius: 8px;
   border: none;
@@ -37,19 +40,28 @@
 }
 
 .search-filters button {
-  flex: 0 0 120px;
+  flex: 0 0 auto;
   padding: 12px 20px;
   background-color: #1e3c72;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
 }
 
 .search-filters button:hover {
   background-color: #2a5298;
+}
+
+.search-filters::-webkit-scrollbar {
+  height: 6px;
+}
+
+.search-filters::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
 }
 
 .results {
@@ -58,34 +70,55 @@
   gap: 20px;
 }
 
+.result-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 15px;
+  border-radius: 10px;
+}
+
 .no-results {
   text-align: center;
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: bold;
   color: #ff0000;
   margin-top: 20px;
 }
 
-@media (max-width: 800px) {
-  .search-filters {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .search-filters input,
-  .search-filters select,
-  .search-filters button {
-    flex: 1 1 100%;
-    min-width: auto;
-  }
-}
-
 .program-link {
-  color: #007bff; 
+  color: #007bff;
   text-decoration: none;
   font-weight: 500;
 }
 
 .program-link:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 800px) {
+  .education-page {
+    padding: 10px;
+  }
+
+  .search-filters {
+    gap: 5px;
+  }
+
+  .search-filters input {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .search-filters select {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .search-filters button {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .no-results {
+    font-size: 1.3rem;
+  }
 }
