@@ -8,17 +8,26 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
+  // Tracks whether the app is still checking the session
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Stores the logged-in user (or null)
   const [user, setUser] = useState(null);
+
+  // Stores the inactivity logout timer ID
   const [logoutTimerId, setLogoutTimerId] = useState(null);
 
-  // Auto-logout after 30 minutes of inactivity
+  // ------------------------------------------------------------
+  // AUTO‑LOGOUT TIMER (30 minutes)
+  // ------------------------------------------------------------
   const startLogoutTimer = () => {
+    // Clear any existing timer so only one runs
     if (logoutTimerId) clearTimeout(logoutTimerId);
 
+    // Start a new 30‑minute timer
     const id = setTimeout(async () => {
-      await supabase.auth.signOut();
-      setUser(null);
+      await supabase.auth.signOut(); // invalidate session
+      setUser(null);                 // clear user in React state
       alert("Session expired. Please log in again.");
     }, 1000 * 60 * 30);
 
@@ -29,42 +38,44 @@ export function AuthProvider({ children }) {
     if (logoutTimerId) clearTimeout(logoutTimerId);
   };
 
-  // Initialize authentication state when the app loads
+  // ------------------------------------------------------------
+  // INITIAL SESSION RESTORE ON PAGE LOAD
+  // ------------------------------------------------------------
   useEffect(() => {
     const init = async () => {
-      // Read the user's Remember Me preference
+      // Read Remember Me preference
       const remember = localStorage.getItem("remember_me") === "true";
 
-      // If Remember Me is off, remove all Supabase auth keys from localStorage
-      // This ensures the user is logged out on refresh or tab close
-      if (!remember) {
-        Object.keys(localStorage).forEach((key) => {
-          if (key.startsWith("sb-") && key.includes("auth")) {
-            localStorage.removeItem(key);
-          }
-        });
-      }
+      // Always let Supabase attempt to restore the session
+      // (This is REQUIRED for Google OAuth to work)
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
 
-      // Only restore the session if Remember Me is enabled
-      let session = null;
-      if (remember) {
-        const { data } = await supabase.auth.getSession();
-        session = data.session;
-      }
-
-      console.log("SESSION AFTER REDIRECT:", session);
-
+      // Extract user from session (or null)
       const currentUser = session?.user ?? null;
-      setUser(currentUser);
 
-      if (currentUser) startLogoutTimer();
+      // If Remember Me is OFF:
+      // still allow login to work normally
+      // do NOT persist the user across refresh
+      if (!remember) {
+        setUser(null); // treat session as temporary
+      } else {
+        setUser(currentUser); // persist user
+      }
 
+      // If user exists AND Remember Me is ON → start inactivity timer
+      if (currentUser && remember) {
+        startLogoutTimer();
+      }
+
+      // Done loading initial auth state
       setAuthLoading(false);
     };
 
     init();
 
-    // Listen for Supabase auth events (login, logout, token refresh)
+    // SUPABASE AUTH EVENT LISTENER - Fires on SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, etc.
+    
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (event, session) => {
         const currentUser = session?.user ?? null;
@@ -72,21 +83,29 @@ export function AuthProvider({ children }) {
         if (event === "SIGNED_IN") {
           const userId = currentUser?.id;
 
-          // Ensure user_profiles row exists for this user
+          // Ensure user_profiles row exists
           supabase
             .from("user_profiles")
             .select("*")
             .eq("user_id", userId)
             .single()
             .then(({ data, error }) => {
-              // Error code PGRST116 means "no rows found"
+              // PGRST116 = no row found → create one
               if (error && error.code === "PGRST116") {
                 supabase.from("user_profiles").insert({ user_id: userId });
               }
             });
 
-          setUser(currentUser);
-          startLogoutTimer();
+          const remember = localStorage.getItem("remember_me") === "true";
+
+          // If Remember Me is ON → persist user + start timer
+          if (remember) {
+            setUser(currentUser);
+            startLogoutTimer();
+          } else {
+            // If Remember Me is OFF → user exists only for this session
+            setUser(currentUser);
+          }
         }
 
         if (event === "SIGNED_OUT") {
@@ -96,12 +115,14 @@ export function AuthProvider({ children }) {
       }
     );
 
+    // Cleanup listener on unmount
     return () => {
       subscription?.subscription?.unsubscribe();
       clearLogoutTimer();
     };
   }, []);
 
+  // Values exposed to the rest of the app
   const value = {
     user,
     setUser,

@@ -33,15 +33,15 @@ function Authorization() {
     if (!validate()) return;
     localStorage.setItem("remember_me", remember ? "true" : "false");
     
+    /* Trying to fix remember me issue for Google Auth
     if (!remember) {
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith("sb-") && key.includes("auth")) {
           localStorage.removeItem(key);
         }
       });
-    }
-    
-
+    }*/
+   
 
     const { data: authData, error } = await supabase.auth.signInWithPassword({
       email,

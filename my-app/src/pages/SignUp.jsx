@@ -54,7 +54,7 @@ function Signup() {
     startLogoutTimer();
     navigate("/profile");
   };
-
+  /*
   const signInWithGoogle = async () => {
   // Google login should always persist session
   localStorage.setItem("remember_me", "true");
@@ -75,7 +75,7 @@ function Signup() {
     }
   };
 
-    /*
+    
     try {
       // Sign up user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
@@ -122,9 +122,6 @@ function Signup() {
           />
           {errors.password && <div style={styles.error}>{errors.password}</div>}
           
-          <button onClick={signInWithGoogle} style={styles.button}>
-            Continue with Google
-          </button>
           
           <button type="submit" style={styles.button}>Sign up</button>
         
@@ -134,7 +131,8 @@ function Signup() {
         </form>
 
         <div style={styles.footerText}>
-          Already have an account? <Link to="/authorization" style={styles.signUpLink}>Log in</Link>
+          Already have an account? 
+          <Link to="/authorization" style={styles.signUpLink}>Log in</Link>
         
         
         </div>

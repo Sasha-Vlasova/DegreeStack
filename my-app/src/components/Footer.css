@@ -1,9 +1,11 @@
 .footer {
-  background-color: #222;
+  background: rgba(0, 0, 0, 0.8);   /* SAME AS NAVBAR */
+  backdrop-filter: blur(10px);      /* SAME AS NAVBAR */
   color: white;
   display: flex;
   justify-content: space-between;
   padding: 20px 40px;
+  border-top: 1px solid #444;       /* MATCHES NAVBAR */
 }
 
 .footer a {

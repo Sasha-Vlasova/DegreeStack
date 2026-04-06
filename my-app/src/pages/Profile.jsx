@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+/*useState lets your component store and update values;
+useEffect lets  component run code when something happens (like when the page loads). */
 import "./Profile.css";
 import { supabase } from "../supabase";
 import { Navigate } from "react-router-dom";
@@ -7,14 +9,14 @@ import { useAuth } from "../AuthContext";
 function Profile() {
   const { user } = useAuth();
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false); //  whether the user is editing their profile
+  const [loading, setLoading] = useState(true); //whether the profile is still being fetched
   const [userEmail, setUserEmail] = useState("");
 
   // Multi-citizenship states
-  const [countryQuery, setCountryQuery] = useState("");
-  const [countryResults, setCountryResults] = useState([]);
-  const [citizenships, setCitizenships] = useState([]);
+  const [countryQuery, setCountryQuery] = useState(""); //the user types into the citizenship search box
+  const [countryResults, setCountryResults] = useState([]); //List of matching countries from the API
+  const [citizenships, setCitizenships] = useState([]); //Array of selected citizenships
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -29,7 +31,7 @@ function Profile() {
 
   useEffect(() => {
     fetchProfile();
-  }, []);
+  }, []); //runs once when the component loads
 
   // Fetch matching countries as user types
   useEffect(() => {
@@ -40,16 +42,17 @@ function Profile() {
 
     const fetchByName = async () => {
       try {
-        const res = await fetch(`https://restcountries.com/v3.1/name/${countryQuery}`);
-        const data = await res.json();
+        const res = await fetch(`https://restcountries.com/v3.1/name/${countryQuery}`); // i took the struckture from their website https://restcountries.com/
+        const data = await res.json(); 
+        //Calls the REST Countries API. Gets a list of matching countries
 
-        const names = data
+        const names = data //Extracts each country’s common name&Sorts alphabetically.
           .map((c) => c.name.common)
           .sort((a, b) => a.localeCompare(b));
 
         setCountryResults(names);
       } catch (err) {
-        setCountryResults([]);
+        setCountryResults([]); //Saves the results so they appear in the dropdown.
       }
     };
 
@@ -57,9 +60,9 @@ function Profile() {
   }, [countryQuery]);
 
   async function fetchProfile() {
-    setLoading(true);
+    setLoading(true); //Marks the page as loading.
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser(); //Asks Supabase for the current user.
     if (!user) {
       setLoading(false);
       return;
@@ -73,7 +76,7 @@ function Profile() {
       .eq("user_id", user.id)
       .single();
 
-    if (error && error.code === "PGRST116") {
+    if (error && error.code === "PGRST116") { //"no rows found"
       const { data: insertData } = await supabase
         .from("user_profiles")
         .insert({ user_id: user.id })
@@ -104,10 +107,10 @@ function Profile() {
     setLoading(false);
   }
 
-  const handleChange = (e) => {
+  const handleChange = (e) => { //Updates the correct field when the user types (like u typing name and it updates it at the same time)
     setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
+      ...formData, //copy everything that is already inside formData
+      [e.target.name]: e.target.value //If the input name is "firstName", update formData.firstName.
     });
   };
 
@@ -123,7 +126,7 @@ function Profile() {
     setCitizenships(citizenships.filter((c) => c !== country));
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => { //Prevents page reload
     e.preventDefault();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -227,8 +230,13 @@ function Profile() {
           {countryResults.length > 0 && (
             <ul className="country-dropdown">
               {countryResults.map((country) => (
-                <li key={country} onClick={() => addCitizenship(country)}>
-                  {country}
+                <li
+                  key={country}
+                  className="country-option"
+                  onClick={() => addCitizenship(country)}
+                >
+                  <span className="checkbox-box"></span>
+                  <span>{country}</span>
                 </li>
               ))}
             </ul>

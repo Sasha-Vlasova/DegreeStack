@@ -11,52 +11,7 @@ html, body, #root {
 }
 
 .app-content {
-  flex: 1; 
-  padding-top: 70px;
-}
-
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
-
-body {
-  margin: 0;
-}
-
-.app-content {
+  flex: 1;
   padding-top: 70px;
 }
 
@@ -65,4 +20,108 @@ footer {
   color: #fff;
   text-align: center;
   padding: 20px 0;
+}
+
+
+/* BUTTON BASE STYLE */
+button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background-color: #f5f5f5;
+  color: #333;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+button:hover {
+  background-color: #e0e0e0;
+}
+
+
+/* HIGH CONTRAST MODE — WARM SLATE */
+.high-contrast {
+  --accent: #F9AB00;        /* Warm gold accent */
+  --bg: #202124;            /* Warm slate background */
+  --text: #F1F3F4;          /* Soft light text */
+ /* --bubble-bg: rgba(146, 146, 146, 0.87); 
+  --button-bg: #2C2D30;
+  --button-bg-hover: #3A3B3E;
+  --border: #3C4043;*/
+}
+
+/* Global background + text */
+.high-contrast body,
+.high-contrast #root,
+.high-contrast .app-container {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* Links */
+.high-contrast a {
+  color: var(--accent) !important;
+}
+.high-contrast a:hover {
+  text-decoration: underline;
+}
+
+/* REQUIRED universal override (your constraint) */
+.high-contrast * {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* Buttons */
+.high-contrast button,
+.high-contrast .nav-btn {
+  background: var(--button-bg) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}
+.high-contrast button:hover,
+.high-contrast .nav-btn:hover {
+  background: var(--button-bg-hover) !important;
+}
+
+/* Navbar */
+.high-contrast .nav {
+  background: var(--bg) !important;
+  border-bottom: 1px solid var(--border) !important;
+  backdrop-filter: none !important;
+}
+
+/* High contrast bubble overrides for Education page */
+.high-contrast .result-item {
+  background: #2A2B2E !important;   /* lighter grey bubble */
+  color: var(--text) !important;
+  border: 1px solid #3C4043 !important;
+  border-radius: 10px !important;
+}
+
+/* Search filters container */
+.high-contrast .search-filters {
+  background: #2A2B2E !important;
+  border: 1px solid #3C4043 !important;
+  border-radius: 10px !important;
+  padding: 15px !important;
+}
+
+/* Inputs inside filters */
+.high-contrast .search-filters input,
+.high-contrast .search-filters select {
+  background: #2C2D30 !important;
+  color: var(--text) !important;
+  border: 1px solid #F9AB00 !important;
+}
+
+/* Buttons inside filters */
+.high-contrast .search-filters button {
+  background: #3A3B3E !important;
+  color: var(--text) !important;
+  border: 1px solid #F9AB00 !important;
+}
+.high-contrast .search-filters button:hover {
+  background: #4A4B4E !important;
 }

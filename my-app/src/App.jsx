@@ -20,6 +20,10 @@ import Footer from "./components/Footer";
 // ProtectedRoute wrapper (must exist at src/ProtectedRoute.jsx)
 import ProtectedRoute from "./ProtectedRoute";
 
+//Working at creating High Contrast mode
+import { HighContrastProvider } from "./HighContrastContext";
+
+
 import "./App.css";
 
 
@@ -74,13 +78,17 @@ function AppContent() {
 // This ensures AppContent can safely use useAuth().
 function App() {
   return (
-    <div className="app-container">
+    /*<div className="app-container">*/
       <AuthProvider>
-        <Router>
-          <AppContent />
-        </Router>
+        <HighContrastProvider>
+          <div className="app-container">
+            <Router>
+              <AppContent />
+            </Router>
+          </div>
+        </HighContrastProvider>
       </AuthProvider>
-    </div>
+    //</div>
   );
 }
 

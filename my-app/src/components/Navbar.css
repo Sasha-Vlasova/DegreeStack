@@ -1,7 +1,7 @@
 .nav {
   height: 70px;
   display: flex;
-  justify-content: space-between; /* pushes left & right apart */
+  justify-content: space-between;
   align-items: center;
   padding: 0 2rem;
   background: rgba(0, 0, 0, 0.8);
@@ -17,15 +17,31 @@
 .nav-left,
 .nav-right {
   display: flex;
-  gap: 1.5rem; /* spacing between links */
+  gap: 0;
 }
 
-.nav a {
+/* Unified styling for ALL navbar items — MATCH FOOTER */
+
+.nav a,
+.nav button.nav-btn {
+  background: none;
+  border: none;
+  padding: 0;                 /* remove button padding */
+  margin-right: 15px;         /* SAME as footer */
   color: white;
+  font-size: 16px;            /* SAME as footer */
   text-decoration: none;
-  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;        /* SAME vertical alignment as footer */
 }
 
-.nav a:hover {
-  color: #00bfff;
+/* Hover — SAME as footer */
+.nav a:hover,
+.nav button.nav-btn:hover {
+  text-decoration: underline;
+  background: none;
 }
+
+
+
