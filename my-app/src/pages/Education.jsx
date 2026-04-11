@@ -124,7 +124,7 @@ function Education() {
 
       const { data } = await supabase
         .from("user_profiles")
-        .select("major")
+        .select("major, minors, skills")
         .eq("user_id", user.id);
 
       setProfile(data?.[0]);
@@ -135,9 +135,24 @@ function Education() {
 
   useEffect(() => {
     const fetchRecommended = async () => {
-      if (!profile?.major) return;
+      if (!profile) return;
 
-      const data = await performSearch(profile.major);
+      let data = [];
+
+      if (profile.major) {
+        data = await performSearch(profile.major);
+      }
+
+      if ((!data || data.length === 0) && profile.minors) {
+        data = await performSearch(profile.minors);
+      }
+
+      if ((!data || data.length === 0) && profile.skills) {
+        const firstSkill = profile.skills.split(",")[0].trim();
+        if (firstSkill) {
+          data = await performSearch(firstSkill);
+        }
+      }
 
       const filtered = (data || []).filter((item) => {
         const matchType =

@@ -18,6 +18,7 @@ function Profile() {
   const [citizenships, setCitizenships] = useState([]);
 
   const [recommended, setRecommended] = useState([]);
+  const [recommendationQuery, setRecommendationQuery] = useState("");
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -42,7 +43,9 @@ function Profile() {
 
     const fetchByName = async () => {
       try {
-        const res = await fetch(`https://restcountries.com/v3.1/name/${countryQuery}`);
+        const res = await fetch(
+          `https://restcountries.com/v3.1/name/${countryQuery}`
+        );
         const data = await res.json();
 
         const names = data
@@ -60,24 +63,28 @@ function Profile() {
 
   useEffect(() => {
     const fetchRecommended = async () => {
-      if (!formData.major) {
-        setRecommended([]);
-        return;
-      }
+      let data = [];
+      let usedQuery = "";
 
-      let data = await searchPrograms(formData.major);
+      if (formData.major) {
+        data = await searchPrograms(formData.major);
+        if (data?.length > 0) usedQuery = formData.major;
+      }
 
       if ((!data || data.length === 0) && formData.minors) {
         data = await searchPrograms(formData.minors);
+        if (data?.length > 0) usedQuery = formData.minors;
       }
 
       if ((!data || data.length === 0) && formData.skills) {
         const firstSkill = formData.skills.split(",")[0].trim();
         if (firstSkill) {
           data = await searchPrograms(firstSkill);
+          if (data?.length > 0) usedQuery = firstSkill;
         }
       }
 
+      setRecommendationQuery(usedQuery);
       setRecommended((data || []).slice(0, 3));
     };
 
@@ -195,7 +202,7 @@ function Profile() {
 
   const handleViewMore = () => {
     navigate("/education", {
-      state: { searchQuery: formData.major }
+      state: { searchQuery: recommendationQuery }
     });
   };
 
@@ -218,19 +225,23 @@ function Profile() {
 
         {!isEditing ? (
           <div className="profile-view">
-            <p><strong>Name:</strong> {formData.firstName || formData.lastName ? `${formData.firstName} ${formData.lastName}` : "Not provided yet"}</p>
+            <p>
+              <strong>Name:</strong>{" "}
+              {formData.firstName || formData.lastName
+                ? `${formData.firstName} ${formData.lastName}`
+                : "Not provided yet"}
+            </p>
             <p><strong>School:</strong> {formData.school || "Not provided yet"}</p>
             <p><strong>Year:</strong> {formData.year || "Not provided yet"}</p>
             <p><strong>Major:</strong> {formData.major || "Not provided yet"}</p>
             <p><strong>Minors:</strong> {formData.minors || "Not provided yet"}</p>
             <p><strong>Skills:</strong> {formData.skills || "Not provided yet"}</p>
-            <p><strong>Citizenship:</strong> {citizenships.length > 0 ? citizenships.join(", ") : "Not provided yet"}</p>
-
-            {Object.values(formData).some((v) => v === "") && (
-              <p className="profile-hint">
-                Your profile is incomplete — fill in missing fields to personalize your experience.
-              </p>
-            )}
+            <p>
+              <strong>Citizenship:</strong>{" "}
+              {citizenships.length > 0
+                ? citizenships.join(", ")
+                : "Not provided yet"}
+            </p>
 
             <button onClick={() => setIsEditing(true)}>Edit Profile</button>
           </div>
@@ -239,44 +250,10 @@ function Profile() {
             <input name="firstName" placeholder="First Name" value={formData.firstName} onChange={handleChange} />
             <input name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} />
             <input name="school" placeholder="School" value={formData.school} onChange={handleChange} />
-            <input name="year" placeholder="Year (Freshman, Senior...)" value={formData.year} onChange={handleChange} />
+            <input name="year" placeholder="Year" value={formData.year} onChange={handleChange} />
             <input name="major" placeholder="Major" value={formData.major} onChange={handleChange} />
             <input name="minors" placeholder="Minors" value={formData.minors} onChange={handleChange} />
-            <input name="skills" placeholder="Skills (comma separated)" value={formData.skills} onChange={handleChange} />
-
-            <label>Citizenship</label>
-
-            <div className="selected-countries">
-              {citizenships.map((c) => (
-                <span key={c} className="country-chip">
-                  {c}
-                  <button type="button" onClick={() => removeCitizenship(c)}>x</button>
-                </span>
-              ))}
-            </div>
-
-            <input
-              type="text"
-              placeholder="Type a country..."
-              value={countryQuery}
-              onChange={(e) => setCountryQuery(e.target.value)}
-            />
-
-            {countryResults.length > 0 && (
-              <ul className="country-dropdown">
-                {countryResults.map((country) => (
-                  <li
-                    key={country}
-                    className="country-option"
-                    onClick={() => addCitizenship(country)}
-                  >
-                    <span className="checkbox-box"></span>
-                    <span>{country}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
+            <input name="skills" placeholder="Skills" value={formData.skills} onChange={handleChange} />
             <button type="submit">Save</button>
           </form>
         )}
@@ -292,13 +269,7 @@ function Profile() {
             {recommended.map((item) => (
               <div key={item.id} className="result-item">
                 <h4>{item.title}</h4>
-
                 <p><strong>Level:</strong> {item.program_level}</p>
-
-                {item.program_type && (
-                  <p><strong>Type:</strong> {item.program_type}</p>
-                )}
-
                 <p>
                   <strong>Campuses:</strong>{" "}
                   {item.program_campuses
@@ -306,20 +277,6 @@ function Profile() {
                     .filter(Boolean)
                     .join(", ") || "N/A"}
                 </p>
-
-                {item.program_url && (
-                  <p>
-                    <strong>Website:</strong>{" "}
-                    <a
-                      href={item.program_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="program-link"
-                    >
-                      Visit Program
-                    </a>
-                  </p>
-                )}
               </div>
             ))}
 
