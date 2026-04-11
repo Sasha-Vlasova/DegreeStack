@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from "react";
 import "./Education.css";
 import { supabase } from "../supabase";
+import { searchPrograms } from "../utils/programSearch";
+import { useLocation } from "react-router-dom";
 
 function Education() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const location = useLocation();
+
+  const [searchQuery, setSearchQuery] = useState(
+    location.state?.searchQuery || ""
+  );
   const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(true);
 
   const [filters, setFilters] = useState({
     field_of_study: "",
@@ -22,9 +28,6 @@ function Education() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
 
-  // ---------------------------
-  // INPUT HANDLERS
-  // ---------------------------
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
   };
@@ -45,93 +48,32 @@ function Education() {
     });
 
     setSearchQuery("");
-    setHasSearched(false);
-    setResults([]);
+    setHasSearched(true);
   };
 
-  // ---------------------------
-  // SEARCH FUNCTION
-  // ---------------------------
   const performSearch = async (queryText = "", overrideFilters = {}) => {
     setLoading(true);
 
     const effectiveFilters = { ...filters, ...overrideFilters };
 
-    let query = supabase
-      .from("programs")
-      .select(`
-        id,
-        title,
-        program_level,
-        program_type,
-        program_url,
-        career_clusters,
-        program_campuses!inner (
-          campus_code,
-          campuses (
-            code,
-            name,
-            state
-          )
+    const data = await searchPrograms(queryText, effectiveFilters);
+
+    const filtered = effectiveFilters.field_of_study
+      ? (data || []).filter((p) =>
+          (p.career_clusters || []).includes(effectiveFilters.field_of_study)
         )
-      `);
-
-    // TEXT SEARCH
-    if (queryText.trim() !== "") {
-      const phrase = queryText.trim();
-      query = query.textSearch("title,keywords", phrase, {
-        type: "phrase"
-      });
-    }
-
-    // FIELD
-    if (effectiveFilters.field_of_study) {
-      const field = effectiveFilters.field_of_study.trim();
-      query = query.contains("career_clusters", JSON.stringify([field]));
-    }
-
-    // SCHOOL
-    if (effectiveFilters.school) {
-      query = query.eq("program_campuses.campus_code", effectiveFilters.school);
-    }
-
-    // TYPE
-    if (effectiveFilters.type) {
-      query = query.eq("program_level", effectiveFilters.type);
-    }
-
-    // LOCATION (STATE FILTER)
-    if (effectiveFilters.location) {
-      query = query.eq(
-        "program_campuses.campuses.state",
-        effectiveFilters.location
-      );
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Error fetching programs:", error);
-      setLoading(false);
-      return [];
-    }
+      : data;
 
     setLoading(false);
-    return data || [];
+    return filtered || [];
   };
 
-  // ---------------------------
-  // MAIN SEARCH
-  // ---------------------------
   const handleSearch = async () => {
     setHasSearched(true);
     const data = await performSearch(searchQuery);
     setResults(data);
   };
 
-  // ---------------------------
-  // CAMPUSES
-  // ---------------------------
   useEffect(() => {
     const fetchCampuses = async () => {
       const { data } = await supabase
@@ -145,9 +87,6 @@ function Education() {
     fetchCampuses();
   }, []);
 
-  // ---------------------------
-  // FIELDS
-  // ---------------------------
   useEffect(() => {
     const fetchFields = async () => {
       const { data, error } = await supabase
@@ -165,9 +104,6 @@ function Education() {
     fetchFields();
   }, []);
 
-  // ---------------------------
-  // AUTO SEARCH
-  // ---------------------------
   useEffect(() => {
     const delay = setTimeout(() => {
       handleSearch();
@@ -176,9 +112,6 @@ function Education() {
     return () => clearTimeout(delay);
   }, [searchQuery, filters]);
 
-  // ---------------------------
-  // USER
-  // ---------------------------
   useEffect(() => {
     const fetchUser = async () => {
       const {
@@ -200,9 +133,6 @@ function Education() {
     fetchUser();
   }, []);
 
-  // ---------------------------
-  // RECOMMENDED
-  // ---------------------------
   useEffect(() => {
     const fetchRecommended = async () => {
       if (!profile?.major) return;
@@ -238,7 +168,6 @@ function Education() {
     <div className="education-page">
       <h1>Find Further Education Opportunities</h1>
 
-      {/* ---------------- FILTERS ---------------- */}
       <div className="search-filters">
         <input
           type="text"
@@ -296,19 +225,14 @@ function Education() {
         <button onClick={handleClearFilters}>Clear Filters</button>
       </div>
 
-      {/* ---------------- RECOMMENDED ---------------- */}
       {user && recommended.length > 0 && (
         <div className="recommended">
           <h2>Recommended for You</h2>
 
           {recommended.map((item) => (
-            <div key={item.id} className="result-item">
+            <div key={item.id} className="education-result-item">
               <h3>{item.title}</h3>
-
-              <p>
-                <strong>Level:</strong> {item.program_level}
-              </p>
-
+              <p><strong>Level:</strong> {item.program_level}</p>
               <p>
                 <strong>Campuses:</strong>{" "}
                 {item.program_campuses
@@ -318,9 +242,7 @@ function Education() {
               </p>
 
               {item.program_type && (
-                <p>
-                  <strong>Type:</strong> {item.program_type}
-                </p>
+                <p><strong>Type:</strong> {item.program_type}</p>
               )}
 
               {item.program_url && (
@@ -330,7 +252,7 @@ function Education() {
                     href={item.program_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="program-link"
+                    className="education-program-link"
                   >
                     Visit Program
                   </a>
@@ -341,23 +263,16 @@ function Education() {
         </div>
       )}
 
-      {/* ---------------- RESULTS ---------------- */}
       <div className="results">
         {loading ? (
           <p>Loading...</p>
-        ) : !hasSearched ? (
-          <p>Start searching to see results</p>
         ) : results.length === 0 ? (
           <p className="no-results">No results found :(</p>
         ) : (
           results.map((item) => (
-            <div key={item.id} className="result-item">
+            <div key={item.id} className="education-result-item">
               <h3>{item.title}</h3>
-
-              <p>
-                <strong>Level:</strong> {item.program_level}
-              </p>
-
+              <p><strong>Level:</strong> {item.program_level}</p>
               <p>
                 <strong>Campuses:</strong>{" "}
                 {item.program_campuses
@@ -367,9 +282,7 @@ function Education() {
               </p>
 
               {item.program_type && (
-                <p>
-                  <strong>Type:</strong> {item.program_type}
-                </p>
+                <p><strong>Type:</strong> {item.program_type}</p>
               )}
 
               {item.program_url && (
@@ -379,7 +292,7 @@ function Education() {
                     href={item.program_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="program-link"
+                    className="education-program-link"
                   >
                     Visit Program
                   </a>

@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from "react";
-/*useState lets your component store and update values;
-useEffect lets  component run code when something happens (like when the page loads). */
 import "./Profile.css";
 import { supabase } from "../supabase";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
+import { searchPrograms } from "../utils/programSearch";
 
 function Profile() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const [isEditing, setIsEditing] = useState(false); //  whether the user is editing their profile
-  const [loading, setLoading] = useState(true); //whether the profile is still being fetched
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState("");
 
-  // Multi-citizenship states
-  const [countryQuery, setCountryQuery] = useState(""); //the user types into the citizenship search box
-  const [countryResults, setCountryResults] = useState([]); //List of matching countries from the API
-  const [citizenships, setCitizenships] = useState([]); //Array of selected citizenships
+  const [countryQuery, setCountryQuery] = useState("");
+  const [countryResults, setCountryResults] = useState([]);
+  const [citizenships, setCitizenships] = useState([]);
+
+  const [recommended, setRecommended] = useState([]);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -26,14 +27,13 @@ function Profile() {
     major: "",
     minors: "",
     skills: "",
-    citizenship: "" // stored as comma-separated string
+    citizenship: ""
   });
 
   useEffect(() => {
     fetchProfile();
-  }, []); //runs once when the component loads
+  }, []);
 
-  // Fetch matching countries as user types
   useEffect(() => {
     if (countryQuery.length < 2) {
       setCountryResults([]);
@@ -42,27 +42,55 @@ function Profile() {
 
     const fetchByName = async () => {
       try {
-        const res = await fetch(`https://restcountries.com/v3.1/name/${countryQuery}`); // i took the struckture from their website https://restcountries.com/
-        const data = await res.json(); 
-        //Calls the REST Countries API. Gets a list of matching countries
+        const res = await fetch(`https://restcountries.com/v3.1/name/${countryQuery}`);
+        const data = await res.json();
 
-        const names = data //Extracts each country’s common name&Sorts alphabetically.
+        const names = data
           .map((c) => c.name.common)
           .sort((a, b) => a.localeCompare(b));
 
         setCountryResults(names);
       } catch (err) {
-        setCountryResults([]); //Saves the results so they appear in the dropdown.
+        setCountryResults([]);
       }
     };
 
     fetchByName();
   }, [countryQuery]);
 
-  async function fetchProfile() {
-    setLoading(true); //Marks the page as loading.
+  useEffect(() => {
+    const fetchRecommended = async () => {
+      if (!formData.major) {
+        setRecommended([]);
+        return;
+      }
 
-    const { data: { user } } = await supabase.auth.getUser(); //Asks Supabase for the current user.
+      let data = await searchPrograms(formData.major);
+
+      if ((!data || data.length === 0) && formData.minors) {
+        data = await searchPrograms(formData.minors);
+      }
+
+      if ((!data || data.length === 0) && formData.skills) {
+        const firstSkill = formData.skills.split(",")[0].trim();
+        if (firstSkill) {
+          data = await searchPrograms(firstSkill);
+        }
+      }
+
+      setRecommended((data || []).slice(0, 3));
+    };
+
+    fetchRecommended();
+  }, [formData.major, formData.skills, formData.minors]);
+
+  async function fetchProfile() {
+    setLoading(true);
+
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
     if (!user) {
       setLoading(false);
       return;
@@ -76,7 +104,7 @@ function Profile() {
       .eq("user_id", user.id)
       .single();
 
-    if (error && error.code === "PGRST116") { //"no rows found"
+    if (error && error.code === "PGRST116") {
       const { data: insertData } = await supabase
         .from("user_profiles")
         .insert({ user_id: user.id })
@@ -98,7 +126,6 @@ function Profile() {
         citizenship: data.citizenship || ""
       });
 
-      // Load saved citizenships into array
       if (data.citizenship) {
         setCitizenships(data.citizenship.split(",").map((c) => c.trim()));
       }
@@ -107,10 +134,10 @@ function Profile() {
     setLoading(false);
   }
 
-  const handleChange = (e) => { //Updates the correct field when the user types (like u typing name and it updates it at the same time)
+  const handleChange = (e) => {
     setFormData({
-      ...formData, //copy everything that is already inside formData
-      [e.target.name]: e.target.value //If the input name is "firstName", update formData.firstName.
+      ...formData,
+      [e.target.name]: e.target.value
     });
   };
 
@@ -126,10 +153,13 @@ function Profile() {
     setCitizenships(citizenships.filter((c) => c !== country));
   }
 
-  const handleSubmit = async (e) => { //Prevents page reload
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
     if (!user) return;
 
     const { data, error } = await supabase
@@ -143,7 +173,7 @@ function Profile() {
         major: formData.major,
         minors: formData.minors,
         skills: formData.skills,
-        citizenship: citizenships.join(", ") // save as string
+        citizenship: citizenships.join(", ")
       })
       .select()
       .single();
@@ -163,6 +193,12 @@ function Profile() {
     return `Welcome to your profile, ${userEmail}!`;
   };
 
+  const handleViewMore = () => {
+    navigate("/education", {
+      state: { searchQuery: formData.major }
+    });
+  };
+
   if (!user && !loading) {
     return <Navigate to="/authorization" replace />;
   }
@@ -176,75 +212,123 @@ function Profile() {
   }
 
   return (
-    <div className="profile">
-      <h1>{getWelcomeMessage()}</h1>
+    <div className="profile-layout">
+      <div className="profile-main profile">
+        <h1>{getWelcomeMessage()}</h1>
 
-      {!isEditing ? (
-        <div className="profile-view">
-          <p><strong>Name:</strong> {formData.firstName || formData.lastName ? `${formData.firstName} ${formData.lastName}` : "Not provided yet"}</p>
-          <p><strong>School:</strong> {formData.school || "Not provided yet"}</p>
-          <p><strong>Year:</strong> {formData.year || "Not provided yet"}</p>
-          <p><strong>Major:</strong> {formData.major || "Not provided yet"}</p>
-          <p><strong>Minors:</strong> {formData.minors || "Not provided yet"}</p>
-          <p><strong>Skills:</strong> {formData.skills || "Not provided yet"}</p>
-          <p><strong>Citizenship:</strong> 
-            {citizenships.length > 0 ? citizenships.join(", ") : "Not provided yet"}
-          </p>
+        {!isEditing ? (
+          <div className="profile-view">
+            <p><strong>Name:</strong> {formData.firstName || formData.lastName ? `${formData.firstName} ${formData.lastName}` : "Not provided yet"}</p>
+            <p><strong>School:</strong> {formData.school || "Not provided yet"}</p>
+            <p><strong>Year:</strong> {formData.year || "Not provided yet"}</p>
+            <p><strong>Major:</strong> {formData.major || "Not provided yet"}</p>
+            <p><strong>Minors:</strong> {formData.minors || "Not provided yet"}</p>
+            <p><strong>Skills:</strong> {formData.skills || "Not provided yet"}</p>
+            <p><strong>Citizenship:</strong> {citizenships.length > 0 ? citizenships.join(", ") : "Not provided yet"}</p>
 
-          {Object.values(formData).some(v => v === "") && (
-            <p className="profile-hint">
-              Your profile is incomplete — fill in missing fields to personalize your experience.
-            </p>
-          )}
+            {Object.values(formData).some((v) => v === "") && (
+              <p className="profile-hint">
+                Your profile is incomplete — fill in missing fields to personalize your experience.
+              </p>
+            )}
 
-          <button onClick={() => setIsEditing(true)}>Edit Profile</button>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="profile-edit">
-          <input name="firstName" placeholder="First Name" value={formData.firstName} onChange={handleChange} />
-          <input name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} />
-          <input name="school" placeholder="School" value={formData.school} onChange={handleChange} />
-          <input name="year" placeholder="Year (Freshman, Senior...)" value={formData.year} onChange={handleChange} />
-          <input name="major" placeholder="Major" value={formData.major} onChange={handleChange} />
-          <input name="minors" placeholder="Minors" value={formData.minors} onChange={handleChange} />
-          <input name="skills" placeholder="Skills (comma separated)" value={formData.skills} onChange={handleChange} />
-
-          <label>Citizenship</label>
-
-          <div className="selected-countries">
-            {citizenships.map((c) => (
-              <span key={c} className="country-chip">
-                {c}
-                <button type="button" onClick={() => removeCitizenship(c)}>x</button>
-              </span>
-            ))}
+            <button onClick={() => setIsEditing(true)}>Edit Profile</button>
           </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="profile-edit">
+            <input name="firstName" placeholder="First Name" value={formData.firstName} onChange={handleChange} />
+            <input name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} />
+            <input name="school" placeholder="School" value={formData.school} onChange={handleChange} />
+            <input name="year" placeholder="Year (Freshman, Senior...)" value={formData.year} onChange={handleChange} />
+            <input name="major" placeholder="Major" value={formData.major} onChange={handleChange} />
+            <input name="minors" placeholder="Minors" value={formData.minors} onChange={handleChange} />
+            <input name="skills" placeholder="Skills (comma separated)" value={formData.skills} onChange={handleChange} />
 
-          <input
-            type="text"
-            placeholder="Type a country..."
-            value={countryQuery}
-            onChange={(e) => setCountryQuery(e.target.value)}
-          />
+            <label>Citizenship</label>
 
-          {countryResults.length > 0 && (
-            <ul className="country-dropdown">
-              {countryResults.map((country) => (
-                <li
-                  key={country}
-                  className="country-option"
-                  onClick={() => addCitizenship(country)}
-                >
-                  <span className="checkbox-box"></span>
-                  <span>{country}</span>
-                </li>
+            <div className="selected-countries">
+              {citizenships.map((c) => (
+                <span key={c} className="country-chip">
+                  {c}
+                  <button type="button" onClick={() => removeCitizenship(c)}>x</button>
+                </span>
               ))}
-            </ul>
-          )}
+            </div>
 
-          <button type="submit">Save</button>
-        </form>
-      )}
+            <input
+              type="text"
+              placeholder="Type a country..."
+              value={countryQuery}
+              onChange={(e) => setCountryQuery(e.target.value)}
+            />
+
+            {countryResults.length > 0 && (
+              <ul className="country-dropdown">
+                {countryResults.map((country) => (
+                  <li
+                    key={country}
+                    className="country-option"
+                    onClick={() => addCitizenship(country)}
+                  >
+                    <span className="checkbox-box"></span>
+                    <span>{country}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <button type="submit">Save</button>
+          </form>
+        )}
+      </div>
+
+      <div className="profile-recommendations">
+        <h2>Recommended</h2>
+
+        {recommended.length === 0 ? (
+          <p>No recommendations yet.</p>
+        ) : (
+          <>
+            {recommended.map((item) => (
+              <div key={item.id} className="result-item">
+                <h4>{item.title}</h4>
+
+                <p><strong>Level:</strong> {item.program_level}</p>
+
+                {item.program_type && (
+                  <p><strong>Type:</strong> {item.program_type}</p>
+                )}
+
+                <p>
+                  <strong>Campuses:</strong>{" "}
+                  {item.program_campuses
+                    ?.map((pc) => pc.campuses?.name)
+                    .filter(Boolean)
+                    .join(", ") || "N/A"}
+                </p>
+
+                {item.program_url && (
+                  <p>
+                    <strong>Website:</strong>{" "}
+                    <a
+                      href={item.program_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="program-link"
+                    >
+                      Visit Program
+                    </a>
+                  </p>
+                )}
+              </div>
+            ))}
+
+            <button className="view-more-btn" onClick={handleViewMore}>
+              View More
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
