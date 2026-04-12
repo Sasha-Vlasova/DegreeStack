@@ -10,6 +10,7 @@ function Education() {
   const [searchQuery, setSearchQuery] = useState(
     location.state?.searchQuery || ""
   );
+
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(true);
 
@@ -28,9 +29,7 @@ function Education() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
 
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-  };
+  const handleSearchChange = (e) => setSearchQuery(e.target.value);
 
   const handleFilterChange = (e) => {
     setFilters({
@@ -51,21 +50,31 @@ function Education() {
     setHasSearched(true);
   };
 
-  const performSearch = async (queryText = "", overrideFilters = {}) => {
+  const performSearch = async (queryText = "") => {
     setLoading(true);
 
-    const effectiveFilters = { ...filters, ...overrideFilters };
+    const data = await searchPrograms(queryText, filters);
 
-    const data = await searchPrograms(queryText, effectiveFilters);
+    const filtered = (data || []).filter((item) => {
+      const matchSchool =
+        !filters.school ||
+        item.program_campuses?.some(
+          (pc) => pc.campus_code === filters.school
+        );
 
-    const filtered = effectiveFilters.field_of_study
-      ? (data || []).filter((p) =>
-          (p.career_clusters || []).includes(effectiveFilters.field_of_study)
-        )
-      : data;
+      const matchLocation =
+        !filters.location ||
+        item.state_source === filters.location;
+
+      const matchField =
+        !filters.field_of_study ||
+        (item.career_clusters || []).includes(filters.field_of_study);
+
+      return matchSchool && matchLocation && matchField;
+    });
 
     setLoading(false);
-    return filtered || [];
+    return filtered;
   };
 
   const handleSearch = async () => {
@@ -73,6 +82,14 @@ function Education() {
     const data = await performSearch(searchQuery);
     setResults(data);
   };
+
+  useEffect(() => {
+    const delay = setTimeout(() => {
+      handleSearch();
+    }, 300);
+
+    return () => clearTimeout(delay);
+  }, [searchQuery, filters]);
 
   useEffect(() => {
     const fetchCampuses = async () => {
@@ -95,7 +112,7 @@ function Education() {
 
       if (error) return;
 
-      const all = data.flatMap((p) => p.career_clusters || []);
+      const all = (data || []).flatMap((p) => p.career_clusters || []);
       const unique = [...new Set(all.map((c) => c.trim()))];
 
       setFields(unique);
@@ -103,14 +120,6 @@ function Education() {
 
     fetchFields();
   }, []);
-
-  useEffect(() => {
-    const delay = setTimeout(() => {
-      handleSearch();
-    }, 300);
-
-    return () => clearTimeout(delay);
-  }, [searchQuery, filters]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -154,30 +163,21 @@ function Education() {
         }
       }
 
-      const filtered = (data || []).filter((item) => {
-        const matchType =
-          !filters.type || item.program_level === filters.type;
-
-        const matchSchool =
-          !filters.school ||
-          item.program_campuses?.some(
-            (pc) => pc.campus_code === filters.school
-          );
-
-        const matchLocation =
-          !filters.location ||
-          item.program_campuses?.some(
-            (pc) => pc.campuses?.state === filters.location
-          );
-
-        return matchType && matchSchool && matchLocation;
-      });
-
-      setRecommended(filtered.slice(0, 3));
+      setRecommended((data || []).slice(0, 3));
     };
 
     fetchRecommended();
   }, [profile, filters]);
+
+  const renderCampuses = (item) => {
+    const names = item.program_campuses
+      ?.map((pc) => pc.campuses?.name)
+      .filter((v) => v && v.trim() !== "");
+
+    if (!names || names.length === 0) return null;
+
+    return names.join(", ");
+  };
 
   return (
     <div className="education-page">
@@ -204,15 +204,17 @@ function Education() {
           ))}
         </select>
 
-        <select name="type" value={filters.type} onChange={handleFilterChange}>
+        <select
+          name="type"
+          value={filters.type}
+          onChange={handleFilterChange}
+        >
           <option value="">All Program Types</option>
           <option value="Masters">Masters</option>
           <option value="Doctorate">Doctorate</option>
           <option value="Certificate">Certificate</option>
           <option value="Post Bachelors">Post Bachelors</option>
-          <option value="Education Specialist">
-            Education Specialist
-          </option>
+          <option value="Education Specialist">Education Specialist</option>
         </select>
 
         <select
@@ -235,6 +237,7 @@ function Education() {
         >
           <option value="">All Locations</option>
           <option value="Wisconsin">Wisconsin</option>
+          <option value="Minnesota">Minnesota</option>
         </select>
 
         <button onClick={handleClearFilters}>Clear Filters</button>
@@ -248,13 +251,12 @@ function Education() {
             <div key={item.id} className="education-result-item">
               <h3>{item.title}</h3>
               <p><strong>Level:</strong> {item.program_level}</p>
-              <p>
-                <strong>Campuses:</strong>{" "}
-                {item.program_campuses
-                  ?.map((pc) => pc.campuses?.name)
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
+
+              {renderCampuses(item) && (
+                <p>
+                  <strong>Campuses:</strong> {renderCampuses(item)}
+                </p>
+              )}
 
               {item.program_type && (
                 <p><strong>Type:</strong> {item.program_type}</p>
@@ -267,7 +269,6 @@ function Education() {
                     href={item.program_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="education-program-link"
                   >
                     Visit Program
                   </a>
@@ -288,13 +289,12 @@ function Education() {
             <div key={item.id} className="education-result-item">
               <h3>{item.title}</h3>
               <p><strong>Level:</strong> {item.program_level}</p>
-              <p>
-                <strong>Campuses:</strong>{" "}
-                {item.program_campuses
-                  ?.map((pc) => pc.campuses?.name)
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
+
+              {renderCampuses(item) && (
+                <p>
+                  <strong>Campuses:</strong> {renderCampuses(item)}
+                </p>
+              )}
 
               {item.program_type && (
                 <p><strong>Type:</strong> {item.program_type}</p>
@@ -307,7 +307,6 @@ function Education() {
                     href={item.program_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="education-program-link"
                   >
                     Visit Program
                   </a>

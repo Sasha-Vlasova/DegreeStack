@@ -9,8 +9,9 @@ export const searchPrograms = async (queryText = "", filters = {}) => {
       program_level,
       program_type,
       program_url,
+      state_source,
       career_clusters,
-      program_campuses!inner (
+      program_campuses (
         campus_code,
         campuses (
           code,
@@ -29,14 +30,6 @@ export const searchPrograms = async (queryText = "", filters = {}) => {
 
   if (filters.type) {
     query = query.eq("program_level", filters.type);
-  }
-
-  if (filters.school) {
-    query = query.eq("program_campuses.campus_code", filters.school);
-  }
-
-  if (filters.location) {
-    query = query.eq("program_campuses.campuses.state", filters.location);
   }
 
   const { data, error } = await query;

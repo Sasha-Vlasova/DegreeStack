@@ -126,14 +126,21 @@
   margin-top: 20px;
 }
 
-.education-program-link {
-  color: #FFA500;
-  text-decoration: none;
+/* =========================
+   BULLETPROOF ORANGE LINKS
+   ========================= */
+
+.education-result-item a.education-program-link,
+.education-result-item a.education-program-link:visited,
+.education-result-item a.education-program-link:active {
+  color: #FFA500 !important;
+  text-decoration: none !important;
   font-weight: 500;
 }
 
-.education-program-link:hover {
-  text-decoration: underline;
+.education-result-item a.education-program-link:hover {
+  color: #ffb84d !important;
+  text-decoration: underline !important;
 }
 
 @media (max-width: 800px) {
@@ -172,4 +179,18 @@
   .no-results {
     font-size: 1.3rem;
   }
+}
+
+.education-result-item a,
+.education-result-item a:link,
+.education-result-item a:visited,
+.education-result-item a:active {
+  color: #FFA500 !important;
+  text-decoration: none !important;
+  font-weight: 500;
+}
+
+.education-result-item a:hover {
+  color: #ffb84d !important;
+  text-decoration: underline !important;
 }

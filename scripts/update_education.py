@@ -1,6 +1,7 @@
 import os
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from supabase import create_client, Client
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -10,6 +11,39 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     raise Exception("Supabase URL or KEY not set.")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+def validate_single_url(url: str):
+    if not url:
+        return url, False
+
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=5)
+
+        if response.status_code >= 400:
+            response = requests.get(url, allow_redirects=True, timeout=5)
+
+        return url, response.status_code == 200
+    except requests.RequestException:
+        return url, False
+
+
+def validate_urls_parallel(urls, max_workers=20):
+    unique_urls = list(set([u for u in urls if u]))
+    results = {}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(validate_single_url, url): url
+            for url in unique_urls
+        }
+
+        for future in as_completed(futures):
+            url, valid = future.result()
+            results[url] = valid
+
+    return results
+
 
 url = "https://www.wisconsin.edu/wp-json/uws-program-finder/v1/programs"
 response = requests.get(url)
@@ -52,6 +86,9 @@ campus_map = {
     "SUP": "University of Wisconsin Superior",
 }
 
+raw_urls = [p.get("program_url") or "" for p in programs]
+validated_urls = validate_urls_parallel(raw_urls)
+
 filtered_programs = []
 
 for p in programs:
@@ -64,8 +101,8 @@ for p in programs:
         continue
 
     campuses_raw = p.get("campuses") or []
-
     campuses = []
+
     for c in campuses_raw:
         if not c:
             continue
@@ -73,6 +110,9 @@ for p in programs:
         name = campus_map.get(code)
         if name:
             campuses.append({"code": code, "name": name})
+
+    raw_url = p.get("program_url") or ""
+    valid_url = raw_url if validated_urls.get(raw_url, False) else ""
 
     filtered_programs.append({
         "title": p.get("title"),
@@ -82,7 +122,7 @@ for p in programs:
         "career_clusters": p.get("career_clusters"),
         "submajors": p.get("submajors"),
         "keywords": p.get("keywords"),
-        "program_url": p.get("program_url") or "",
+        "program_url": valid_url,
         "campuses": campuses
     })
 
@@ -101,7 +141,7 @@ if len(unique_programs) < 50:
     print("API returned too few programs — aborting sync")
     exit()
 
-now = datetime.utcnow().isoformat()
+now = datetime.now(UTC).isoformat()
 
 program_records = [
     {
@@ -113,7 +153,8 @@ program_records = [
         "submajors": p.get("submajors"),
         "keywords": p.get("keywords"),
         "program_url": p.get("program_url"),
-        "last_seen": now
+        "last_seen": now,
+        "state_source": "Wisconsin"
     }
     for p in unique_programs.values()
 ]
@@ -134,10 +175,11 @@ program_lookup = {
     for p in programs_db
 }
 
-cutoff = (datetime.utcnow() - timedelta(days=2)).isoformat()
+cutoff = (datetime.now(UTC) - timedelta(days=2)).isoformat()
 
 old_programs = supabase.table("programs") \
     .select("id") \
+    .eq("state_source", "Wisconsin") \
     .lt("last_seen", cutoff) \
     .execute() \
     .data
@@ -155,7 +197,7 @@ if ids_to_delete:
         .in_("id", ids_to_delete) \
         .execute()
 
-    print(f"Deleted {len(ids_to_delete)} stale programs")
+    print(f"Deleted {len(ids_to_delete)} stale Wisconsin programs")
 
 all_campuses = {}
 
@@ -208,5 +250,4 @@ if final_links:
         .execute()
 
 print(f"Linked {len(final_links)} relationships")
-
-print("Update complete!")
+print("Wisconsin update complete!")
