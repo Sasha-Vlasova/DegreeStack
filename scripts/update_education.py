@@ -131,7 +131,12 @@ print(f"Filtered to {len(filtered_programs)} programs")
 unique_programs = {}
 
 for p in filtered_programs:
-    key = (p["title"], p["program_level"], p["program_url"])
+    key = (
+        p["title"],
+        p["program_level"],
+        p["program_url"],
+        "Wisconsin"
+    )
     if key not in unique_programs:
         unique_programs[key] = p
 
@@ -160,18 +165,27 @@ program_records = [
 ]
 
 supabase.table("programs") \
-    .upsert(program_records, on_conflict="title,program_level,program_url") \
+    .upsert(
+        program_records,
+        on_conflict="title,program_level,program_url,state_source"
+    ) \
     .execute()
 
 print(f"Upserted {len(program_records)} programs")
 
 programs_db = supabase.table("programs") \
-    .select("id,title,program_level,program_url") \
+    .select("id,title,program_level,program_url,state_source") \
+    .eq("state_source", "Wisconsin") \
     .execute() \
     .data
 
 program_lookup = {
-    (p["title"], p["program_level"], p["program_url"] or ""): p["id"]
+    (
+        p["title"],
+        p["program_level"],
+        p["program_url"] or "",
+        p["state_source"]
+    ): p["id"]
     for p in programs_db
 }
 
@@ -223,7 +237,12 @@ print(f"Upserted {len(campus_records)} campuses")
 links = []
 
 for p in filtered_programs:
-    key = (p["title"], p["program_level"], p["program_url"])
+    key = (
+        p["title"],
+        p["program_level"],
+        p["program_url"],
+        "Wisconsin"
+    )
     program_id = program_lookup.get(key)
 
     if not program_id:
