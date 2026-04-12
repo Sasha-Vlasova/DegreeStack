@@ -12,7 +12,6 @@ function Education() {
   );
 
   const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(true);
 
   const [filters, setFilters] = useState({
     field_of_study: "",
@@ -47,7 +46,6 @@ function Education() {
     });
 
     setSearchQuery("");
-    setHasSearched(true);
   };
 
   const performSearch = async (queryText = "") => {
@@ -56,12 +54,6 @@ function Education() {
     const data = await searchPrograms(queryText, filters);
 
     const filtered = (data || []).filter((item) => {
-      const matchSchool =
-        !filters.school ||
-        item.program_campuses?.some(
-          (pc) => pc.campus_code === filters.school
-        );
-
       const matchLocation =
         !filters.location ||
         item.state_source === filters.location;
@@ -70,7 +62,7 @@ function Education() {
         !filters.field_of_study ||
         (item.career_clusters || []).includes(filters.field_of_study);
 
-      return matchSchool && matchLocation && matchField;
+      return matchLocation && matchField;
     });
 
     setLoading(false);
@@ -78,7 +70,6 @@ function Education() {
   };
 
   const handleSearch = async () => {
-    setHasSearched(true);
     const data = await performSearch(searchQuery);
     setResults(data);
   };
@@ -93,16 +84,21 @@ function Education() {
 
   useEffect(() => {
     const fetchCampuses = async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("campuses")
-        .select("code, name")
+        .select("code, name, state")
         .order("name");
 
+      if (filters.location) {
+        query = query.eq("state", filters.location);
+      }
+
+      const { data } = await query;
       setCampuses(data || []);
     };
 
     fetchCampuses();
-  }, []);
+  }, [filters.location]);
 
   useEffect(() => {
     const fetchFields = async () => {
