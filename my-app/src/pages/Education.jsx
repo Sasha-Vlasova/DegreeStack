@@ -55,8 +55,7 @@ function Education() {
 
     const filtered = (data || []).filter((item) => {
       const matchLocation =
-        !filters.location ||
-        item.state_source === filters.location;
+        !filters.location || item.state_source === filters.location;
 
       const matchField =
         !filters.field_of_study ||
@@ -138,25 +137,42 @@ function Education() {
     fetchUser();
   }, []);
 
+  // ✅ FIXED: multi-major + multi-minor recommendation logic
   useEffect(() => {
     const fetchRecommended = async () => {
       if (!profile) return;
 
       let data = [];
 
+      const trySearchList = async (values) => {
+        for (const value of values) {
+          const result = await performSearch(value);
+          if (result && result.length > 0) {
+            return result;
+          }
+        }
+        return [];
+      };
+
       if (profile.major) {
-        data = await performSearch(profile.major);
+        const majors = Array.isArray(profile.major)
+          ? profile.major
+          : profile.major.split(",").map((m) => m.trim());
+
+        data = await trySearchList(majors);
       }
 
       if ((!data || data.length === 0) && profile.minors) {
-        data = await performSearch(profile.minors);
+        const minors = Array.isArray(profile.minors)
+          ? profile.minors
+          : profile.minors.split(",").map((m) => m.trim());
+
+        data = await trySearchList(minors);
       }
 
       if ((!data || data.length === 0) && profile.skills) {
-        const firstSkill = profile.skills.split(",")[0].trim();
-        if (firstSkill) {
-          data = await performSearch(firstSkill);
-        }
+        const skills = profile.skills.split(",").map((s) => s.trim());
+        data = await trySearchList(skills);
       }
 
       setRecommended((data || []).slice(0, 3));
@@ -246,6 +262,7 @@ function Education() {
           {recommended.map((item) => (
             <div key={item.id} className="education-result-item">
               <h3>{item.title}</h3>
+
               <p><strong>Level:</strong> {item.program_level}</p>
 
               {renderCampuses(item) && (
@@ -284,6 +301,7 @@ function Education() {
           results.map((item) => (
             <div key={item.id} className="education-result-item">
               <h3>{item.title}</h3>
+
               <p><strong>Level:</strong> {item.program_level}</p>
 
               {renderCampuses(item) && (

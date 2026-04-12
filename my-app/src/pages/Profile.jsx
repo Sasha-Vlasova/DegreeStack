@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import "./Profile.css";
 import { supabase } from "../supabase";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -13,31 +13,74 @@ function Profile() {
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState("");
 
-  // Profile form
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     school: "",
     year: "",
-    major: "",
-    minors: "",
-    skills: "",
-    citizenship: ""
+    skills: ""
   });
 
-  // Citizenship system
+  const [citizenships, setCitizenships] = useState([]);
   const [countryQuery, setCountryQuery] = useState("");
   const [countryResults, setCountryResults] = useState([]);
-  const [citizenships, setCitizenships] = useState([]);
 
-  // Recommendations system
+  const [majors, setMajors] = useState([]);
+  const [minors, setMinors] = useState([]);
+  const [majorQuery, setMajorQuery] = useState("");
+  const [minorQuery, setMinorQuery] = useState("");
+  const [programOptions, setProgramOptions] = useState([]);
+
   const [recommended, setRecommended] = useState([]);
   const [recommendationQuery, setRecommendationQuery] = useState("");
 
-  // Load profile
   useEffect(() => {
     fetchProfile();
+    fetchProgramOptions();
   }, []);
+
+  async function fetchProgramOptions() {
+    let allPrograms = [];
+    let from = 0;
+    const batchSize = 1000;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const { data, error } = await supabase
+        .from("programs")
+        .select("title")
+        .order("title", { ascending: true })
+        .range(from, from + batchSize - 1);
+
+      if (error) {
+        console.error("Program fetch error:", error);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        keepFetching = false;
+        break;
+      }
+
+      allPrograms = [...allPrograms, ...data];
+
+      if (data.length < batchSize) {
+        keepFetching = false;
+      } else {
+        from += batchSize;
+      }
+    }
+
+    const uniqueTitles = [
+      ...new Map(
+        allPrograms
+          .filter((item) => item.title)
+          .map((item) => [item.title.trim().toLowerCase(), item.title.trim()])
+      ).values()
+    ];
+
+    setProgramOptions(uniqueTitles);
+  }
 
   async function fetchProfile() {
     setLoading(true);
@@ -75,70 +118,135 @@ function Profile() {
         lastName: data.last_name || "",
         school: data.school || "",
         year: data.year || "",
-        major: data.major || "",
-        minors: data.minors || "",
-        skills: data.skills || "",
-        citizenship: data.citizenship || ""
+        skills: data.skills || ""
       });
 
-      if (data.citizenship) {
-        setCitizenships(
-          data.citizenship.split(",").map((c) => c.trim())
-        );
-      }
+      setCitizenships(
+        data.citizenship
+          ? data.citizenship.split(",").map((c) => c.trim()).filter(Boolean)
+          : []
+      );
+
+      setMajors(
+        data.major
+          ? data.major.split(",").map((m) => m.trim()).filter(Boolean)
+          : []
+      );
+
+      setMinors(
+        data.minors
+          ? data.minors.split(",").map((m) => m.trim()).filter(Boolean)
+          : []
+      );
     }
 
     setLoading(false);
   }
 
-  // Citizenship search API
   useEffect(() => {
     if (countryQuery.length < 2) {
       setCountryResults([]);
       return;
     }
 
-    const fetchByName = async () => {
+    const fetchCountries = async () => {
       try {
         const res = await fetch(
           `https://restcountries.com/v3.1/name/${countryQuery}`
         );
         const data = await res.json();
 
-        const names = data
-          .map((c) => c.name.common)
-          .sort((a, b) => a.localeCompare(b));
+        const names = [
+          ...new Map(
+            data.map((c) => [c.name.common.toLowerCase(), c.name.common])
+          ).values()
+        ].sort((a, b) => a.localeCompare(b));
 
         setCountryResults(names);
-      } catch (err) {
+      } catch {
         setCountryResults([]);
       }
     };
 
-    fetchByName();
+    fetchCountries();
   }, [countryQuery]);
 
-  // Recommendations system
+  const rankPrograms = (query, selectedList) => {
+    if (!query.trim()) return [];
+
+    const q = query.toLowerCase().trim();
+
+    return programOptions
+      .filter(
+        (option) =>
+          option.toLowerCase().includes(q) &&
+          !selectedList.includes(option)
+      )
+      .sort((a, b) => {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+
+        const aExact = aLower === q;
+        const bExact = bLower === q;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+
+        const aStarts = aLower.startsWith(q);
+        const bStarts = bLower.startsWith(q);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+
+        const aWords = aLower.split(/[\s:,-]+/);
+        const bWords = bLower.split(/[\s:,-]+/);
+
+        const aWord = aWords.includes(q);
+        const bWord = bWords.includes(q);
+        if (aWord && !bWord) return -1;
+        if (!aWord && bWord) return 1;
+
+        return a.length - b.length;
+      })
+      .slice(0, 20);
+  };
+
+  const filteredMajorOptions = useMemo(() => {
+    return rankPrograms(majorQuery, majors);
+  }, [majorQuery, majors, programOptions]);
+
+  const filteredMinorOptions = useMemo(() => {
+    return rankPrograms(minorQuery, minors);
+  }, [minorQuery, minors, programOptions]);
+
   useEffect(() => {
     const fetchRecommended = async () => {
       let data = [];
       let usedQuery = "";
 
-      if (formData.major) {
-        data = await searchPrograms(formData.major);
-        if (data?.length > 0) usedQuery = formData.major;
+      for (const major of majors) {
+        data = await searchPrograms(major);
+        if (data?.length > 0) {
+          usedQuery = major;
+          break;
+        }
       }
 
-      if ((!data || data.length === 0) && formData.minors) {
-        data = await searchPrograms(formData.minors);
-        if (data?.length > 0) usedQuery = formData.minors;
+      if ((!data || data.length === 0) && minors.length > 0) {
+        for (const minor of minors) {
+          data = await searchPrograms(minor);
+          if (data?.length > 0) {
+            usedQuery = minor;
+            break;
+          }
+        }
       }
 
       if ((!data || data.length === 0) && formData.skills) {
         const firstSkill = formData.skills.split(",")[0].trim();
         if (firstSkill) {
           data = await searchPrograms(firstSkill);
-          if (data?.length > 0) usedQuery = firstSkill;
+          if (data?.length > 0) {
+            usedQuery = firstSkill;
+          }
         }
       }
 
@@ -147,9 +255,8 @@ function Profile() {
     };
 
     fetchRecommended();
-  }, [formData.major, formData.minors, formData.skills]);
+  }, [majors, minors, formData.skills]);
 
-  // Handle form changes
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -157,20 +264,17 @@ function Profile() {
     });
   };
 
-  // Citizenship handlers
-  function addCitizenship(country) {
-    if (!citizenships.includes(country)) {
-      setCitizenships([...citizenships, country]);
-    }
-    setCountryQuery("");
-    setCountryResults([]);
-  }
+  const addChip = (value, list, setter, clearSetter) => {
+    const trimmed = value.trim();
+    if (!trimmed || list.includes(trimmed)) return;
+    setter([...list, trimmed]);
+    clearSetter("");
+  };
 
-  function removeCitizenship(country) {
-    setCitizenships(citizenships.filter((c) => c !== country));
-  }
+  const removeChip = (value, list, setter) => {
+    setter(list.filter((item) => item !== value));
+  };
 
-  // Save profile
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -180,23 +284,19 @@ function Profile() {
 
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from("user_profiles")
-      .upsert({
-        user_id: user.id,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        school: formData.school,
-        year: formData.year,
-        major: formData.major,
-        minors: formData.minors,
-        skills: formData.skills,
-        citizenship: citizenships.join(", ")
-      })
-      .select()
-      .single();
+    const { error } = await supabase.from("user_profiles").upsert({
+      user_id: user.id,
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      school: formData.school,
+      year: formData.year,
+      major: majors.join(", "),
+      minors: minors.join(", "),
+      skills: formData.skills,
+      citizenship: citizenships.join(", ")
+    });
 
-    if (!error && data) {
+    if (!error) {
       setIsEditing(false);
     }
   };
@@ -217,7 +317,6 @@ function Profile() {
     return `Welcome to your profile, ${userEmail}!`;
   };
 
-  // Auth guard
   if (!user && !loading) {
     return <Navigate to="/authorization" replace />;
   }
@@ -237,26 +336,19 @@ function Profile() {
 
         {!isEditing ? (
           <div className="profile-view">
-            <p><strong>Name:</strong> {formData.firstName || formData.lastName
-              ? `${formData.firstName} ${formData.lastName}`
-              : "Not provided yet"}</p>
-
-            <p><strong>School:</strong> {formData.school || "Not provided yet"}</p>
-            <p><strong>Year:</strong> {formData.year || "Not provided yet"}</p>
-            <p><strong>Major:</strong> {formData.major || "Not provided yet"}</p>
-            <p><strong>Minors:</strong> {formData.minors || "Not provided yet"}</p>
-            <p><strong>Skills:</strong> {formData.skills || "Not provided yet"}</p>
-
             <p>
-              <strong>Citizenship:</strong>{" "}
-              {citizenships.length > 0
-                ? citizenships.join(", ")
+              <strong>Name:</strong>{" "}
+              {formData.firstName || formData.lastName
+                ? `${formData.firstName} ${formData.lastName}`
                 : "Not provided yet"}
             </p>
-
-            <button onClick={() => setIsEditing(true)}>
-              Edit Profile
-            </button>
+            <p><strong>School:</strong> {formData.school || "Not provided yet"}</p>
+            <p><strong>Year:</strong> {formData.year || "Not provided yet"}</p>
+            <p><strong>Majors:</strong> {majors.join(", ") || "Not provided yet"}</p>
+            <p><strong>Minors:</strong> {minors.join(", ") || "Not provided yet"}</p>
+            <p><strong>Skills:</strong> {formData.skills || "Not provided yet"}</p>
+            <p><strong>Citizenship:</strong> {citizenships.join(", ") || "Not provided yet"}</p>
+            <button onClick={() => setIsEditing(true)}>Edit Profile</button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="profile-edit">
@@ -264,40 +356,92 @@ function Profile() {
             <input name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} />
             <input name="school" placeholder="School" value={formData.school} onChange={handleChange} />
             <input name="year" placeholder="Year" value={formData.year} onChange={handleChange} />
-            <input name="major" placeholder="Major" value={formData.major} onChange={handleChange} />
-            <input name="minors" placeholder="Minors" value={formData.minors} onChange={handleChange} />
             <input name="skills" placeholder="Skills" value={formData.skills} onChange={handleChange} />
 
-            <label>Citizenship</label>
+            <label>Majors</label>
+            <div className="selected-countries">
+              {majors.map((major) => (
+                <span key={major} className="country-chip">
+                  {major}
+                  <button type="button" onClick={() => removeChip(major, majors, setMajors)}>x</button>
+                </span>
+              ))}
+            </div>
+            <input
+              type="text"
+              placeholder="Type a major..."
+              value={majorQuery}
+              onChange={(e) => setMajorQuery(e.target.value)}
+            />
+            {filteredMajorOptions.length > 0 && (
+              <ul className="country-dropdown">
+                {filteredMajorOptions.map((option) => (
+                  <li
+                    key={option}
+                    className="country-option"
+                    onClick={() => addChip(option, majors, setMajors, setMajorQuery)}
+                  >
+                    {option}
+                  </li>
+                ))}
+              </ul>
+            )}
 
+            <label>Minors</label>
+            <div className="selected-countries">
+              {minors.map((minor) => (
+                <span key={minor} className="country-chip">
+                  {minor}
+                  <button type="button" onClick={() => removeChip(minor, minors, setMinors)}>x</button>
+                </span>
+              ))}
+            </div>
+            <input
+              type="text"
+              placeholder="Type a minor..."
+              value={minorQuery}
+              onChange={(e) => setMinorQuery(e.target.value)}
+            />
+            {filteredMinorOptions.length > 0 && (
+              <ul className="country-dropdown">
+                {filteredMinorOptions.map((option) => (
+                  <li
+                    key={option}
+                    className="country-option"
+                    onClick={() => addChip(option, minors, setMinors, setMinorQuery)}
+                  >
+                    {option}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <label>Citizenship</label>
             <div className="selected-countries">
               {citizenships.map((c) => (
                 <span key={c} className="country-chip">
                   {c}
-                  <button type="button" onClick={() => removeCitizenship(c)}>
-                    x
-                  </button>
+                  <button type="button" onClick={() => removeChip(c, citizenships, setCitizenships)}>x</button>
                 </span>
               ))}
             </div>
-
             <input
               type="text"
               placeholder="Type a country..."
               value={countryQuery}
               onChange={(e) => setCountryQuery(e.target.value)}
             />
-
             {countryResults.length > 0 && (
               <ul className="country-dropdown">
                 {countryResults.map((country) => (
                   <li
                     key={country}
                     className="country-option"
-                    onClick={() => addCitizenship(country)}
+                    onClick={() =>
+                      addChip(country, citizenships, setCitizenships, setCountryQuery)
+                    }
                   >
-                    <span className="checkbox-box"></span>
-                    <span>{country}</span>
+                    {country}
                   </li>
                 ))}
               </ul>
@@ -312,7 +456,7 @@ function Profile() {
         <h2>Recommended Education</h2>
 
         {recommended.length === 0 ? (
-          <p>No recommendations yet. </p>
+          <p>No recommendations yet.</p>
         ) : (
           <>
             {recommended.map((item) => (
@@ -328,10 +472,7 @@ function Profile() {
                 </p>
               </div>
             ))}
-
-            <button onClick={handleViewMore}>
-              View More
-            </button>
+            <button onClick={handleViewMore}>View More</button>
           </>
         )}
       </div>
