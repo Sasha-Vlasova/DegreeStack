@@ -80,7 +80,7 @@ function Authorization() {
     });
 
     if (error) {
-      alert("Google login failed: " + error.message);
+      alert("Google login failed: " + error.message); // does not show up, because google auth is handled by supabase and it redirects to google login page, so error handling is not working properly, but it is there just in case
     }
   };
 
@@ -137,9 +137,8 @@ function Authorization() {
             />
             Remember me
           </label>
-          <button type="button" onClick={signInWithGoogle} style={styles.button}>
-            Continue with Google
-          </button>
+          
+        
 
 
 

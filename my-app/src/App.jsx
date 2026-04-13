@@ -17,12 +17,14 @@ import Emails from "./pages/Emails";
 import Profile from "./pages/Profile";
 import Footer from "./components/Footer";
 
-// ProtectedRoute wrapper (must exist at src/ProtectedRoute.jsx)
+// Resume Builder
+import ResumeBuilder from "./resume/ResumeBuilder";
+
+// ProtectedRoute wrapper
 import ProtectedRoute from "./ProtectedRoute";
 
-//Working at creating High Contrast mode
+// High Contrast mode
 import { HighContrastProvider } from "./HighContrastContext";
-
 
 import "./App.css";
 
@@ -33,7 +35,6 @@ function AppContent() {
   const { authLoading } = useAuth();
 
   // While Supabase checks the session, show a loading screen.
-  // This prevents UI flashing and incorrect redirects.
   if (authLoading) {
     return <div className="loading-screen">Loading...</div>;
   }
@@ -52,10 +53,16 @@ function AppContent() {
           <Route path="/careers" element={<Careers />} />
           <Route path="/research" element={<Research />} />
           <Route path="/education" element={<Education />} />
+
+          {/* Resume selection page */}
           <Route path="/resume" element={<Resume />} />
+
+          {/* Resume builder page */}
+          <Route path="/resume/builder/:templateId" element={<ResumeBuilder />} />
+
           <Route path="/emails" element={<Emails />} />
 
-          {/* Protected route: only logged-in users can access /profile */}
+          {/* Protected route */}
           <Route
             path="/profile"
             element={
@@ -75,20 +82,17 @@ function AppContent() {
 
 
 // Root component: wraps everything in AuthProvider and Router.
-// This ensures AppContent can safely use useAuth().
 function App() {
   return (
-    /*<div className="app-container">*/
-      <AuthProvider>
-        <HighContrastProvider>
-          <div className="app-container">
-            <Router>
-              <AppContent />
-            </Router>
-          </div>
-        </HighContrastProvider>
-      </AuthProvider>
-    //</div>
+    <AuthProvider>
+      <HighContrastProvider>
+        <div className="app-container">
+          <Router>
+            <AppContent />
+          </Router>
+        </div>
+      </HighContrastProvider>
+    </AuthProvider>
   );
 }
 
