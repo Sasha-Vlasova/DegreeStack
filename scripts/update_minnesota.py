@@ -95,10 +95,6 @@ def get_best_cluster(title, level):
 
     return []
 
-
-# =========================
-# MINNESOTA API
-# =========================
 url = "https://eservices.minnstate.edu/program-web-srvc/programs/search"
 
 payload = {
@@ -186,7 +182,7 @@ for p in programs:
     raw_url = p.get("programUrl")
     program_url = raw_url if validated.get(raw_url, False) else ""
 
-    # ✅ THIS IS THE ONLY NEW FEATURE YOU WANTED
+
     clusters = get_best_cluster(p.get("programName"), level)
 
     clean.append({

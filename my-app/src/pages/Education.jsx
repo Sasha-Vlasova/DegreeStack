@@ -137,7 +137,7 @@ function Education() {
     fetchUser();
   }, []);
 
-  // ✅ FIXED: multi-major + multi-minor recommendation logic
+
   useEffect(() => {
     const fetchRecommended = async () => {
       if (!profile) return;
