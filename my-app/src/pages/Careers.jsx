@@ -91,7 +91,7 @@ function Careers() {
     }
 
     setTotalCount(count || 0);
-    setHasMore(jobs.length === pageSize);
+    setHasMore(to < (count || 0) - 1);
     setLoading(false);
   };
 
@@ -151,7 +151,7 @@ function Careers() {
           setPage((p) => p + 1);
         }
       },
-      { threshold: 1 }
+      { rootMargin: "200px" }
     );
 
     if (observerRef.current) {
