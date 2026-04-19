@@ -47,7 +47,7 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: bold;
 }
 
@@ -73,6 +73,7 @@
 
 .recommended h2 {
   margin-bottom: 15px;
+  color: white;
 }
 
 .career-item {
@@ -89,15 +90,17 @@
 .career-item h3 {
   margin: 0 0 10px 0;
   padding-left: 10px;
+  color: white;
 }
 
 .career-item p {
   margin: 5px 0;
   padding-left: 10px;
+  color: white;
 }
 
 .career-item strong {
-  color: #fff;
+  color: white;
 }
 
 .results {
@@ -107,11 +110,12 @@
 }
 
 .results::before {
-  content: "All Jobs";
+  content: "All Results";
   display: block;
   font-size: 1.5rem;
   font-weight: bold;
   margin-bottom: 10px;
+  color: white;
 }
 
 .no-results {
@@ -120,6 +124,19 @@
   font-weight: bold;
   color: #ff0000;
   margin-top: 20px;
+}
+
+.career-item a.career-link,
+.career-item a.career-link:visited,
+.career-item a.career-link:active {
+  color: #FFA500 !important;
+  text-decoration: none !important;
+  font-weight: 500;
+}
+
+.career-item a.career-link:hover {
+  color: #ffb84d !important;
+  text-decoration: underline !important;
 }
 
 @media (max-width: 800px) {
@@ -131,8 +148,16 @@
     gap: 5px;
   }
 
-  .search-filters input,
-  .search-filters select,
+  .search-filters input {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .search-filters select {
+    font-size: 12px;
+    padding: 8px;
+  }
+
   .search-filters button {
     font-size: 12px;
     padding: 8px;

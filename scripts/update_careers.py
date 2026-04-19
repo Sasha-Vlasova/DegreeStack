@@ -32,16 +32,74 @@ def determine_job_type(j):
     if is_internship:
         return "Internship"
     contract_type = j.get("contract_type", "")
-    if contract_type == "full_time": return "Full-Time"
-    if contract_type == "part_time": return "Part-Time"
+    if contract_type == "full_time":
+        return "Full-Time"
+    if contract_type == "part_time":
+        return "Part-Time"
     if "part-time" in title or "part time" in title:
         return "Part-Time"
     return "Full-Time"
 
 def extract_skills(text):
-    skills = ["python", "sql", "react", "java", "excel", "javascript", "aws", "project management"]
+    if not text:
+        return []
+
     text = text.lower()
-    return [s for s in skills if s in text]
+
+    skill_patterns = {
+        "Python": [r"\bpython\b"],
+        "SQL": [r"\bsql\b"],
+        "JavaScript": [r"\bjavascript\b", r"\bjs\b"],
+        "React": [r"\breact\b"],
+        "Node.js": [r"\bnode\.?js\b"],
+        "AWS": [r"\baws\b"],
+        "Docker": [r"\bdocker\b"],
+        "Machine Learning": [r"\bmachine learning\b", r"\bml\b"],
+
+        "Microsoft Office": [r"\bmicrosoft office\b", r"\bms office\b"],
+        "Excel": [r"\bexcel\b"],
+        "Data Entry": [r"\bdata entry\b"],
+        "Customer Service": [r"\bcustomer service\b"],
+        "Project Management": [r"\bproject management\b", r"\bpmp\b"],
+        "Sales": [r"\bsales\b"],
+        "Marketing": [r"\bmarketing\b", r"\bseo\b"],
+
+        "Accounting": [r"\baccounting\b"],
+        "Finance": [r"\bfinance\b"],
+        "Bookkeeping": [r"\bbookkeeping\b"],
+
+        "Patient Care": [r"\bpatient care\b"],
+        "Nursing": [r"\bnursing\b", r"\bnurse\b", r"\brn\b", r"\blpn\b"],
+        "Medical Assistant": [r"\bmedical assistant\b"],
+        "Healthcare": [r"\bhealthcare\b"],
+
+        "Teaching": [r"\bteaching\b", r"\bteacher\b"],
+        "Curriculum Development": [r"\bcurriculum\b"],
+        "Classroom Management": [r"\bclassroom\b"],
+
+        "Construction": [r"\bconstruction\b"],
+        "Electrical": [r"\belectrician\b", r"\belectrical\b"],
+        "Plumbing": [r"\bplumbing\b", r"\bplumber\b"],
+        "Maintenance": [r"\bmaintenance\b"],
+        "Welding": [r"\bwelding\b"],
+        "CDL Driving": [r"\bcdl\b", r"\btruck driver\b"],
+
+        "Communication": [r"\bcommunication\b"],
+        "Leadership": [r"\bleadership\b"],
+        "Teamwork": [r"\bteamwork\b", r"\bteam player\b"],
+        "Problem Solving": [r"\bproblem solving\b"],
+        "Time Management": [r"\btime management\b"]
+    }
+
+    found_skills = set()
+
+    for skill, patterns in skill_patterns.items():
+        for pattern in patterns:
+            if re.search(pattern, text):
+                found_skills.add(skill)
+                break
+
+    return list(found_skills)
 
 def fetch_jobs_by_category(state_name, categories):
     all_jobs = []
@@ -79,18 +137,23 @@ unique_batch = {}
 for state in states_to_track:
     raw_results = fetch_jobs_by_category(state, all_tags)
     for j in raw_results:
-        title = j.get("title", "").strip().lower()
-        company = j.get("company", {}).get("display_name", "unknown").strip().lower()
+        title = j.get("title", "").strip()
+        company = j.get("company", {}).get("display_name", "Unknown").strip()
         url = j.get("redirect_url", "")
+
         if not title or not url:
             continue
-        key = (title, company, url)
+
+        key = (title.lower(), company.lower(), url)
+
         if key not in unique_batch:
             location_data = j.get("location", {}).get("area", [])
-            city = location_data[-1] if location_data else "unknown"
+            city = location_data[-1] if location_data else "Unknown"
+
             description = j.get("description", "")
             if len(description) < 50:
                 continue
+
             unique_batch[key] = {
                 "title": title,
                 "company_name": company,
@@ -124,8 +187,9 @@ if total_records >= 10:
     cutoff = (datetime.now(UTC) - timedelta(days=2)).isoformat()
     old_data_req = supabase.table("careers").select("id").lt("last_seen", cutoff).execute()
     old_data = old_data_req.data
-    
+
     ids_to_delete = [row["id"] for row in old_data]
+
     if ids_to_delete:
         print(f"Found {len(ids_to_delete)} stale jobs. Cleaning up...")
         for i in range(0, len(ids_to_delete), 500):

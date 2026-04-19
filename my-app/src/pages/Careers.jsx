@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./Careers.css";
 import { supabase } from "../supabase";
 import { useLocation } from "react-router-dom";
@@ -13,7 +13,6 @@ function Careers() {
   const [loading, setLoading] = useState(false);
 
   const [filters, setFilters] = useState({
-    title: "",
     location: "",
     type: ""
   });
@@ -24,86 +23,81 @@ function Careers() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
 
-  const mockJobs = [
-    {
-      id: 1,
-      title: "Software Engineer",
-      company: "Tech Corp",
-      location: "Wisconsin",
-      type: "Full-time",
-      skills: ["JavaScript", "React"]
-    },
-    {
-      id: 2,
-      title: "Data Analyst",
-      company: "Data Inc",
-      location: "Minnesota",
-      type: "Internship",
-      skills: ["SQL", "Python"]
-    },
-    {
-      id: 3,
-      title: "Backend Developer",
-      company: "Cloud Systems",
-      location: "Wisconsin",
-      type: "Full-time",
-      skills: ["Node.js", "Databases"]
-    }
-  ];
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
-  const handleSearchChange = (e) => setSearchQuery(e.target.value);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const observerRef = useRef();
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setPage(1);
+    setResults([]);
+  };
 
   const handleFilterChange = (e) => {
     setFilters({
       ...filters,
       [e.target.name]: e.target.value
     });
+    setPage(1);
+    setResults([]);
   };
 
   const handleClearFilters = () => {
     setFilters({
-      title: "",
       location: "",
       type: ""
     });
     setSearchQuery("");
+    setPage(1);
+    setResults([]);
   };
 
-  const performSearch = async (queryText = "") => {
+  const performSearch = async () => {
     setLoading(true);
 
-    let data = mockJobs;
+    let query = supabase
+      .from("careers")
+      .select("*", { count: "exact" });
 
-    const filtered = data.filter((job) => {
-      const matchQuery =
-        !queryText ||
-        job.title.toLowerCase().includes(queryText.toLowerCase());
+    if (searchQuery) {
+      query = query.ilike("title", `%${searchQuery}%`);
+    }
 
-      const matchLocation =
-        !filters.location || job.location === filters.location;
+    if (filters.location) {
+      query = query.eq("state_source", filters.location);
+    }
 
-      const matchType =
-        !filters.type || job.type === filters.type;
+    if (filters.type) {
+      query = query.eq("job_type", filters.type);
+    }
 
-      return matchQuery && matchLocation && matchType;
-    });
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
+    const { data, count } = await query
+      .order("created", { ascending: false })
+      .range(from, to);
+
+    const jobs = data || [];
+
+    if (page === 1) {
+      setResults(jobs);
+    } else {
+      setResults((prev) => [...prev, ...jobs]);
+    }
+
+    setTotalCount(count || 0);
+    setHasMore(jobs.length === pageSize);
     setLoading(false);
-    return filtered;
-  };
-
-  const handleSearch = async () => {
-    const data = await performSearch(searchQuery);
-    setResults(data);
   };
 
   useEffect(() => {
-    const delay = setTimeout(() => {
-      handleSearch();
-    }, 300);
-
-    return () => clearTimeout(delay);
-  }, [searchQuery, filters]);
+    performSearch();
+  }, [page, searchQuery, filters]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -133,14 +127,42 @@ function Careers() {
       .split(",")
       .map((s) => s.trim().toLowerCase());
 
-    const matches = mockJobs.filter((job) =>
-      job.skills.some((skill) =>
-        skills.includes(skill.toLowerCase())
-      )
+    const fetchRecommended = async () => {
+      let query = supabase.from("careers").select("*");
+
+      for (const skill of skills) {
+        query = query.or(`description.ilike.%${skill}%`);
+      }
+
+      const { data } = await query.limit(10);
+
+      setRecommended((data || []).slice(0, 3));
+    };
+
+    fetchRecommended();
+  }, [profile]);
+
+  useEffect(() => {
+    if (!hasMore || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPage((p) => p + 1);
+        }
+      },
+      { threshold: 1 }
     );
 
-    setRecommended(matches.slice(0, 3));
-  }, [profile]);
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loading]);
+
+  const start = results.length === 0 ? 0 : 1;
+  const end = results.length;
 
   return (
     <div className="careers-page">
@@ -170,12 +192,17 @@ function Careers() {
           onChange={handleFilterChange}
         >
           <option value="">All Types</option>
-          <option value="Full-time">Full-time</option>
+          <option value="Full-Time">Full-Time</option>
+          <option value="Part-Time">Part-Time</option>
           <option value="Internship">Internship</option>
         </select>
 
         <button onClick={handleClearFilters}>Clear Filters</button>
       </div>
+
+      <p className="results-count">
+        Showing {start}-{end} of {totalCount} jobs
+      </p>
 
       {user && recommended.length > 0 && (
         <div className="recommended">
@@ -184,29 +211,59 @@ function Careers() {
           {recommended.map((job) => (
             <div key={job.id} className="career-item">
               <h3>{job.title}</h3>
-              <p><strong>Company:</strong> {job.company}</p>
-              <p><strong>Location:</strong> {job.location}</p>
-              <p><strong>Type:</strong> {job.type}</p>
+              <p><strong>Company:</strong> {job.company_name}</p>
+              <p><strong>Location:</strong> {job.location_city}, {job.state_source}</p>
+              <p><strong>Type:</strong> {job.job_type}</p>
+
+              {job.job_url && (
+                <p>
+                  <strong>View Job:</strong>{" "}
+                  <a
+                    href={job.job_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="career-link"
+                  >
+                    Apply
+                  </a>
+                </p>
+              )}
             </div>
           ))}
         </div>
       )}
 
       <div className="results">
-        {loading ? (
-          <p>Loading...</p>
-        ) : results.length === 0 ? (
-          <p>No jobs found :(</p>
-        ) : (
-          results.map((job) => (
-            <div key={job.id} className="career-item">
-              <h3>{job.title}</h3>
-              <p><strong>Company:</strong> {job.company}</p>
-              <p><strong>Location:</strong> {job.location}</p>
-              <p><strong>Type:</strong> {job.type}</p>
-            </div>
-          ))
+        {!loading && results.length === 0 && (
+          <p className="no-results">No Results Found :(</p>
         )}
+
+        {results.map((job) => (
+          <div key={job.id} className="career-item">
+            <h3>{job.title}</h3>
+            <p><strong>Company:</strong> {job.company_name}</p>
+            <p><strong>Location:</strong> {job.location_city}, {job.state_source}</p>
+            <p><strong>Type:</strong> {job.job_type}</p>
+
+            {job.job_url && (
+              <p>
+                <strong>View Job:</strong>{" "}
+                <a
+                  href={job.job_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="career-link"
+                >
+                  Apply
+                </a>
+              </p>
+            )}
+          </div>
+        ))}
+
+        {loading && <p>Loading more jobs...</p>}
+
+        <div ref={observerRef} style={{ height: "20px" }} />
       </div>
     </div>
   );
