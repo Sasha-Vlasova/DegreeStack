@@ -15,6 +15,10 @@ import Education from "./pages/Education";
 import Resume from "./pages/Resume";
 import Emails from "./pages/Emails";
 import Profile from "./pages/Profile";
+
+import GeneratePreviewsAdmin from "./pages/GeneratePreviewsAdmin";
+
+
 import Footer from "./components/Footer";
 
 // Resume Builder
@@ -25,6 +29,8 @@ import ProtectedRoute from "./ProtectedRoute";
 
 // High Contrast mode
 import { HighContrastProvider } from "./HighContrastContext";
+
+
 
 import "./App.css";
 
@@ -61,6 +67,9 @@ function AppContent() {
           <Route path="/resume/builder/:templateId" element={<ResumeBuilder />} />
 
           <Route path="/emails" element={<Emails />} />
+
+          <Route path="/admin/generate-previews" element={<GeneratePreviewsAdmin />} />
+
 
           {/* Protected route */}
           <Route

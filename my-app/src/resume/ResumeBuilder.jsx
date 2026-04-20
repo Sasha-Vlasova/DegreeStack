@@ -1,65 +1,37 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { loadTemplate } from "./engine/loadTemplate";
+import { loadDefaultData } from "./engine/loadDefaultData";
 import { renderTemplate } from "./engine/renderTemplate";
 import html2pdf from "html2pdf.js";
 
 export default function ResumeBuilder() {
   const { templateId } = useParams();
+
   const [template, setTemplate] = useState(null);
+  const [values, setValues] = useState(null);
 
   // -----------------------------
-  // DEFAULT FAKE RESUME DATA
-  // -----------------------------
-  const [values, setValues] = useState({
-    full_name: "Alexandra Morgan",
-    email: "alex.morgan@email.com",
-    phone: "(414) 555-2389",
-    location: "Milwaukee, WI",
-
-    degree_title: "Bachelor of Arts",
-    institution_name: "University of Wisconsin",
-    grad_year: "2027",
-    major_minor: "English Literature (Minor: Communications)",
-
-    skills_list:
-      "Academic Writing, Literary Analysis, Editing & Proofreading, Research (MLA/APA), Public Speaking, Critical Thinking, Creative Writing, Copywriting, Content Strategy, Microsoft Office, Google Workspace",
-
-    experience: [
-      {
-        job_title: "Editorial Intern",
-        company: "Campus Literary Review",
-        company_location: "University of Wisconsin, Milwaukee, WI",
-        start_date: "Sep 2024",
-        end_date: "Present",
-        bullets: [
-          "Reviewed and edited student-submitted poetry, short fiction, and essays",
-          "Collaborated with editorial team on 120+ submissions per semester",
-        ],
-      },
-      {
-        job_title: "Writing Tutor",
-        company: "University Writing Center",
-        company_location: "University of Wisconsin, Milwaukee, WI",
-        start_date: "Jan 2024",
-        end_date: "Present",
-        bullets: [
-          "Helped students improve essays, structure, and grammar",
-          "Supported ESL learners with academic writing skills",
-        ],
-      },
-    ],
-  });
-
-  // -----------------------------
-  // LOAD TEMPLATE
+  // LOAD TEMPLATE + DEFAULT DATA
   // -----------------------------
   useEffect(() => {
-    async function fetchTemplate() {
-      const data = await loadTemplate(templateId);
-      setTemplate(data);
+    async function fetchEverything() {
+      const templateData = await loadTemplate(templateId);
+      setTemplate(templateData);
+
+
+      console.log("TEMPLATE DATA:", templateData);
+
+
+      const defaults = await loadDefaultData(templateId);
+      setValues(defaults);
+
+
+      console.log("TEMPLATE DATA:", templateData);
+
     }
-    fetchTemplate();
+
+    fetchEverything();
   }, [templateId]);
 
   // -----------------------------
@@ -82,34 +54,6 @@ export default function ResumeBuilder() {
     }));
   };
 
-  const downloadPDF = () => {
-  const element = document.querySelector("iframe");
-
-  if (!element) return;
-
-  const opt = {
-    margin: 0,
-    filename: `${values.full_name || "resume"}.pdf`,
-    image: { type: "jpeg", quality: 1 },
-    html2canvas: {
-      scale: 2,
-      backgroundColor: "#ffffff", //FORCE WHITE BACKGROUND
-    },
-    jsPDF: {
-      unit: "mm",
-      format: "a4",
-      orientation: "portrait",
-    },
-  };
-
-  const doc = element.contentDocument.body;
-
-  // FORCE WHITE INSIDE IFRAME TOO
-  doc.style.background = "white";
-
-  html2pdf().set(opt).from(doc).save();
-};
-
   const deleteExperience = (index) => {
     setValues((prev) => ({
       ...prev,
@@ -118,27 +62,60 @@ export default function ResumeBuilder() {
   };
 
   const deleteBullet = (expIndex, bulletIndex) => {
-  setValues((prev) => {
-    const updated = [...prev.experience];
+    setValues((prev) => {
+      const updated = [...prev.experience];
 
-    updated[expIndex] = {
-      ...updated[expIndex],
-      bullets: updated[expIndex].bullets.filter(
-        (_, i) => i !== bulletIndex
-      ),
+      updated[expIndex] = {
+        ...updated[expIndex],
+        bullets: updated[expIndex].bullets.filter(
+          (_, i) => i !== bulletIndex
+        ),
+      };
+
+      return { ...prev, experience: updated };
+    });
+  };
+
+  // -----------------------------
+  // PDF DOWNLOAD
+  // -----------------------------
+  const downloadPDF = () => {
+    const element = document.querySelector("iframe");
+    if (!element) return;
+
+    const opt = {
+      margin: 0,
+      filename: `${values.full_name || "resume"}.pdf`,
+      image: { type: "jpeg", quality: 1 },
+      html2canvas: { scale: 2, backgroundColor: "#ffffff" },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
     };
 
-    return { ...prev, experience: updated };
-  });
-};
+    const doc = element.contentDocument.body;
+    doc.style.background = "white";
+
+    html2pdf().set(opt).from(doc).save();
+  };
 
   // -----------------------------
   // LIVE TEMPLATE RENDER
   // -----------------------------
   const html = useMemo(() => {
-    if (!template) return "<p>Loading template...</p>";
+    if (!template || !values) return "<p>Loading...</p>";
     return renderTemplate(template.template_content, values);
   }, [template, values]);
+
+
+  console.log("TEMPLATE:", template);
+  console.log("VALUES:", values);
+  console.log("TEMPLATE CONTENT:", template?.template_content);
+
+
+  if (!template || !values || !template.template_content) {
+    return <p style={{ color: "white" }}>Loading...</p>;
+  }
+
+
 
   return (
     <div style={{ display: "flex", gap: "24px", padding: "24px", color: "orange" }}>
