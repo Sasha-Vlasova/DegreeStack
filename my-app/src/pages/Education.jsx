@@ -2,10 +2,15 @@ import React, { useState, useEffect } from "react";
 import "./Education.css";
 import { supabase } from "../supabase";
 import { searchPrograms } from "../utils/programSearch";
+import { getTopEducationRecommendations } from "../utils/educationRecommendations";
 import { useLocation } from "react-router-dom";
 
 function Education() {
   const location = useLocation();
+
+  const [recommendedMode, setRecommendedMode] = useState(
+    location.state?.recommendedMode || false
+  );
 
   const [searchQuery, setSearchQuery] = useState(
     location.state?.searchQuery || ""
@@ -28,7 +33,10 @@ function Education() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
 
-  const handleSearchChange = (e) => setSearchQuery(e.target.value);
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setRecommendedMode(false);
+  };
 
   const handleFilterChange = (e) => {
     setFilters({
@@ -46,14 +54,11 @@ function Education() {
     });
 
     setSearchQuery("");
+    setRecommendedMode(false);
   };
 
-  const performSearch = async (queryText = "") => {
-    setLoading(true);
-
-    const data = await searchPrograms(queryText, filters);
-
-    const filtered = (data || []).filter((item) => {
+  const filterPrograms = (data) => {
+    return (data || []).filter((item) => {
       const matchLocation =
         !filters.location || item.state_source === filters.location;
 
@@ -63,12 +68,31 @@ function Education() {
 
       return matchLocation && matchField;
     });
+  };
+
+  const performSearch = async (queryText = "") => {
+    setLoading(true);
+
+    const data = await searchPrograms(queryText, filters);
+    const filtered = filterPrograms(data);
 
     setLoading(false);
     return filtered;
   };
 
   const handleSearch = async () => {
+    if (recommendedMode && profile) {
+      setLoading(true);
+
+      const data = await searchPrograms("", filters);
+      const filtered = filterPrograms(data);
+      const topPrograms = getTopEducationRecommendations(filtered, profile, 50);
+
+      setResults(topPrograms);
+      setLoading(false);
+      return;
+    }
+
     const data = await performSearch(searchQuery);
     setResults(data);
   };
@@ -79,7 +103,7 @@ function Education() {
     }, 300);
 
     return () => clearTimeout(delay);
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, recommendedMode, profile]);
 
   useEffect(() => {
     const fetchCampuses = async () => {
@@ -108,7 +132,7 @@ function Education() {
       if (error) return;
 
       const all = (data || []).flatMap((p) => p.career_clusters || []);
-      const unique = [...new Set(all.map((c) => c.trim()))];
+      const unique = [...new Set(all.map((c) => c.trim()))].sort();
 
       setFields(unique);
     };
@@ -129,57 +153,41 @@ function Education() {
       const { data } = await supabase
         .from("user_profiles")
         .select("major, minors, skills")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .single();
 
-      setProfile(data?.[0]);
+      setProfile(data || null);
     };
 
     fetchUser();
   }, []);
 
-
   useEffect(() => {
     const fetchRecommended = async () => {
-      if (!profile) return;
-
-      let data = [];
-
-      const trySearchList = async (values) => {
-        for (const value of values) {
-          const result = await performSearch(value);
-          if (result && result.length > 0) {
-            return result;
-          }
-        }
-        return [];
-      };
-
-      if (profile.major) {
-        const majors = Array.isArray(profile.major)
-          ? profile.major
-          : profile.major.split(",").map((m) => m.trim());
-
-        data = await trySearchList(majors);
+      if (!profile) {
+        setRecommended([]);
+        return;
       }
 
-      if ((!data || data.length === 0) && profile.minors) {
-        const minors = Array.isArray(profile.minors)
-          ? profile.minors
-          : profile.minors.split(",").map((m) => m.trim());
+      const data = await searchPrograms("", filters);
+      const filtered = filterPrograms(data);
+      const topPrograms = getTopEducationRecommendations(filtered, profile, 3);
 
-        data = await trySearchList(minors);
-      }
-
-      if ((!data || data.length === 0) && profile.skills) {
-        const skills = profile.skills.split(",").map((s) => s.trim());
-        data = await trySearchList(skills);
-      }
-
-      setRecommended((data || []).slice(0, 3));
+      setRecommended(topPrograms);
     };
 
     fetchRecommended();
   }, [profile, filters]);
+
+  const showRecommendedMode = () => {
+    setRecommendedMode(true);
+    setSearchQuery("");
+  };
+
+  const showAllPrograms = () => {
+    setRecommendedMode(false);
+    setSearchQuery("");
+  };
 
   const renderCampuses = (item) => {
     const names = item.program_campuses
@@ -230,6 +238,16 @@ function Education() {
         </select>
 
         <select
+          name="location"
+          value={filters.location}
+          onChange={handleFilterChange}
+        >
+          <option value="">All Locations</option>
+          <option value="Wisconsin">Wisconsin</option>
+          <option value="Minnesota">Minnesota</option>
+        </select>
+
+        <select
           name="school"
           value={filters.school}
           onChange={handleFilterChange}
@@ -242,20 +260,25 @@ function Education() {
           ))}
         </select>
 
-        <select
-          name="location"
-          value={filters.location}
-          onChange={handleFilterChange}
-        >
-          <option value="">All Locations</option>
-          <option value="Wisconsin">Wisconsin</option>
-          <option value="Minnesota">Minnesota</option>
-        </select>
-
         <button onClick={handleClearFilters}>Clear Filters</button>
+
+        {user && !recommendedMode && (
+          <button onClick={showRecommendedMode}>Recommended Programs</button>
+        )}
+
+        {recommendedMode && (
+          <button onClick={showAllPrograms}>Show All Programs</button>
+        )}
       </div>
 
-      {user && recommended.length > 0 && (
+      {recommendedMode && (
+        <div className="recommended-mode-banner">
+          <h2>Recommended Education For You</h2>
+          <p>These programs are ranked using your majors, minors, and skills.</p>
+        </div>
+      )}
+
+      {!recommendedMode && user && recommended.length > 0 && (
         <div className="recommended">
           <h2>Recommended for You</h2>
 

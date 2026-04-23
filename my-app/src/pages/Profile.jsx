@@ -4,6 +4,8 @@ import { supabase } from "../supabase";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { searchPrograms } from "../utils/programSearch";
+import { getTopCareerRecommendations } from "../utils/careerRecommendations";
+import { getTopEducationRecommendations } from "../utils/educationRecommendations";
 
 function Profile() {
   const { user } = useAuth();
@@ -32,7 +34,7 @@ function Profile() {
   const [programOptions, setProgramOptions] = useState([]);
 
   const [recommended, setRecommended] = useState([]);
-  const [recommendationQuery, setRecommendationQuery] = useState("");
+  const [recommendedCareers, setRecommendedCareers] = useState([]);
 
   useEffect(() => {
     fetchProfile();
@@ -218,43 +220,55 @@ function Profile() {
   }, [minorQuery, minors, programOptions]);
 
   useEffect(() => {
-    const fetchRecommended = async () => {
-      let data = [];
-      let usedQuery = "";
+    const fetchRecommendedEducation = async () => {
+      const profile = {
+        major: majors.join(", "),
+        minors: minors.join(", "),
+        skills: formData.skills
+      };
 
-      for (const major of majors) {
-        data = await searchPrograms(major);
-        if (data?.length > 0) {
-          usedQuery = major;
-          break;
-        }
+      if (!profile.major && !profile.minors && !profile.skills) {
+        setRecommended([]);
+        return;
       }
 
-      if ((!data || data.length === 0) && minors.length > 0) {
-        for (const minor of minors) {
-          data = await searchPrograms(minor);
-          if (data?.length > 0) {
-            usedQuery = minor;
-            break;
-          }
-        }
-      }
+      const data = await searchPrograms("");
+      const topPrograms = getTopEducationRecommendations(data, profile, 3);
 
-      if ((!data || data.length === 0) && formData.skills) {
-        const firstSkill = formData.skills.split(",")[0].trim();
-        if (firstSkill) {
-          data = await searchPrograms(firstSkill);
-          if (data?.length > 0) {
-            usedQuery = firstSkill;
-          }
-        }
-      }
-
-      setRecommendationQuery(usedQuery);
-      setRecommended((data || []).slice(0, 3));
+      setRecommended(topPrograms);
     };
 
-    fetchRecommended();
+    fetchRecommendedEducation();
+  }, [majors, minors, formData.skills]);
+
+  useEffect(() => {
+    const fetchRecommendedCareers = async () => {
+      const profile = {
+        major: majors.join(", "),
+        minors: minors.join(", "),
+        skills: formData.skills
+      };
+
+      if (!profile.major && !profile.minors && !profile.skills) {
+        setRecommendedCareers([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("careers")
+        .select("*")
+        .order("created", { ascending: false })
+        .limit(20000);
+
+      if (error || !data) {
+        setRecommendedCareers([]);
+        return;
+      }
+
+      setRecommendedCareers(getTopCareerRecommendations(data, profile, 3));
+    };
+
+    fetchRecommendedCareers();
   }, [majors, minors, formData.skills]);
 
   const handleChange = (e) => {
@@ -301,9 +315,15 @@ function Profile() {
     }
   };
 
-  const handleViewMore = () => {
-    navigate("/education", {
-      state: { searchQuery: recommendationQuery }
+    const handleViewMore = () => {
+      navigate("/education", {
+        state: { recommendedMode: true }
+      });
+    };
+
+  const handleViewMoreCareers = () => {
+    navigate("/careers", {
+      state: { recommendedMode: true }
     });
   };
 
@@ -452,29 +472,78 @@ function Profile() {
         )}
       </div>
 
-      <div className="profile-recommendations">
-        <h2>Recommended Education</h2>
+      <div className="profile-sidebar">
+        <div className="profile-recommendations">
+          <h2>Recommended Education</h2>
 
-        {recommended.length === 0 ? (
-          <p>No recommendations yet.</p>
-        ) : (
-          <>
-            {recommended.map((item) => (
-              <div key={item.id} className="result-item">
-                <h4>{item.title}</h4>
-                <p><strong>Level:</strong> {item.program_level}</p>
-                <p>
-                  <strong>Campuses:</strong>{" "}
-                  {item.program_campuses
-                    ?.map((pc) => pc.campuses?.name)
-                    .filter(Boolean)
-                    .join(", ") || "N/A"}
-                </p>
-              </div>
-            ))}
-            <button onClick={handleViewMore}>View More</button>
-          </>
-        )}
+          {recommended.length === 0 ? (
+            <p>No recommendations yet.</p>
+          ) : (
+            <>
+              {recommended.map((item) => (
+                <div key={item.id} className="result-item">
+                  <h4>{item.title}</h4>
+                  <p><strong>Level:</strong> {item.program_level}</p>
+                  <p>
+                    <strong>Campuses:</strong>{" "}
+                    {item.program_campuses
+                      ?.map((pc) => pc.campuses?.name)
+                      .filter(Boolean)
+                      .join(", ") || "N/A"}
+                  </p>
+                </div>
+              ))}
+              <button onClick={handleViewMore}>View More Education</button>
+            </>
+          )}
+        </div>
+
+        <div className="profile-recommendations">
+          <h2>Recommended Careers</h2>
+
+          {recommendedCareers.length === 0 ? (
+            <p>No career recommendations yet.</p>
+          ) : (
+            <>
+              {recommendedCareers.map((job) => (
+                <div key={job.id} className="result-item">
+                  <h4>{job.title}</h4>
+                  <p><strong>Company:</strong> {job.company_name}</p>
+                  <p>
+                    <strong>Location:</strong>{" "}
+                    {job.location_city || "N/A"}, {job.state_source || "N/A"}
+                  </p>
+                  <p><strong>Cluster:</strong> {job.career_cluster || "Other"}</p>
+                  <p><strong>Type:</strong> {job.job_type || "N/A"}</p>
+
+                  {job.salary_min !== null && job.salary_min !== undefined && (
+                    <p>
+                      <strong>Min Salary:</strong>{" "}
+                      {Number(job.salary_min) > 0
+                        ? `$${Number(job.salary_min).toLocaleString()}`
+                        : "Not Listed"}
+                    </p>
+                  )}
+
+                  {job.job_url && (
+                    <p>
+                      <strong>View Job:</strong>{" "}
+                      <a
+                        href={job.job_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="career-link"
+                      >
+                        Apply
+                      </a>
+                    </p>
+                  )}
+                </div>
+              ))}
+              <button onClick={handleViewMoreCareers}>View More Careers</button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

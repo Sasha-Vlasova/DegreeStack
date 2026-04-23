@@ -2,9 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import "./Careers.css";
 import { supabase } from "../supabase";
 import { useLocation } from "react-router-dom";
+import { getTopCareerRecommendations } from "../utils/careerRecommendations";
 
 function Careers() {
   const location = useLocation();
+
+  const [recommendedMode, setRecommendedMode] = useState(
+    location.state?.recommendedMode || false
+  );
 
   const [searchQuery, setSearchQuery] = useState(
     location.state?.searchQuery || ""
@@ -50,114 +55,7 @@ function Careers() {
     { label: "$150,000+", value: "150000" }
   ];
 
-  const normalize = (value) => (value || "").toString().toLowerCase().trim();
-
-  const toArray = (value) => {
-    if (!value) return [];
-
-    if (Array.isArray(value)) {
-      return value.map((item) => normalize(item)).filter(Boolean);
-    }
-
-    return value
-      .split(",")
-      .map((item) => normalize(item))
-      .filter(Boolean);
-  };
-
-  const parseJobSkills = (value) => {
-    if (!value) return [];
-
-    if (Array.isArray(value)) {
-      return value.map((item) => normalize(item)).filter(Boolean);
-    }
-
-    if (typeof value === "string") {
-      try {
-        const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item) => normalize(item)).filter(Boolean);
-        }
-      } catch {}
-
-      return value
-        .split(",")
-        .map((item) => normalize(item.replace(/[\[\]"]/g, "")))
-        .filter(Boolean);
-    }
-
-    return [];
-  };
-
   const unique = (arr) => [...new Set(arr.filter(Boolean))];
-
-  const getProfileTerms = () => {
-    if (!profile) return [];
-
-    const majors = toArray(profile.major);
-    const minors = toArray(profile.minors);
-    const skills = toArray(profile.skills);
-
-    return unique([...majors, ...minors, ...skills]);
-  };
-
-  const countMatches = (terms, text) => {
-    let count = 0;
-
-    for (const term of terms) {
-      if (term && text.includes(term)) {
-        count += 1;
-      }
-    }
-
-    return count;
-  };
-
-  const scoreJob = (job, profileTerms) => {
-    const title = normalize(job.title);
-    const category = normalize(job.category);
-    const description = normalize(job.description);
-    const cluster = normalize(job.career_cluster);
-    const jobSkills = parseJobSkills(job.skills);
-
-    const titleMatches = countMatches(profileTerms, title);
-    const categoryMatches = countMatches(profileTerms, category);
-    const descriptionMatches = countMatches(profileTerms, description);
-    const skillMatches = profileTerms.filter((term) => jobSkills.includes(term)).length;
-    const clusterMatches = countMatches(profileTerms, cluster);
-
-    let score = 0;
-
-    score += titleMatches * 15;
-    score += skillMatches * 18;
-    score += categoryMatches * 8;
-    score += descriptionMatches * 2;
-    score += clusterMatches * 3;
-
-    if (job.job_type === "Internship" && title.includes("intern")) {
-      score += 3;
-    }
-
-    if (job.salary_min && Number(job.salary_min) > 0) {
-      score += 1;
-    }
-
-    if (job.job_url) {
-      score += 1;
-    }
-
-    const qualifies =
-      titleMatches > 0 ||
-      skillMatches > 0 ||
-      categoryMatches > 0 ||
-      (categoryMatches >= 1 && descriptionMatches >= 1);
-
-    return {
-      ...job,
-      score,
-      qualifies
-    };
-  };
 
   const fetchDistinctValues = async (column, state = "") => {
     const batchSize = 1000;
@@ -197,15 +95,7 @@ function Careers() {
     return unique(allRows.map((row) => row[column])).sort();
   };
 
-  const fetchResults = async () => {
-    setLoading(true);
-
-    let query = supabase.from("careers").select("*", { count: "exact" });
-
-    if (searchQuery) {
-      query = query.ilike("title", `%${searchQuery}%`);
-    }
-
+  const applyCareerFilters = (query) => {
     if (filters.location) {
       query = query.eq("state_source", filters.location);
     }
@@ -225,6 +115,48 @@ function Careers() {
     if (filters.minSalary) {
       query = query.gte("salary_min", Number(filters.minSalary));
     }
+
+    return query;
+  };
+
+  const fetchResults = async () => {
+    setLoading(true);
+
+    if (recommendedMode && profile) {
+      let query = supabase
+        .from("careers")
+        .select("*")
+        .order("created", { ascending: false })
+        .limit(20000);
+
+      query = applyCareerFilters(query);
+
+      const { data, error } = await query;
+
+      if (error || !data) {
+        setResults([]);
+        setTotalCount(0);
+        setHasMore(false);
+        setLoading(false);
+        return;
+      }
+
+      const recommendedJobs = getTopCareerRecommendations(data, profile, 50);
+
+      setResults(recommendedJobs);
+      setTotalCount(recommendedJobs.length);
+      setHasMore(false);
+      setLoading(false);
+      return;
+    }
+
+    let query = supabase.from("careers").select("*", { count: "exact" });
+
+    if (searchQuery) {
+      query = query.ilike("title", `%${searchQuery}%`);
+    }
+
+    query = applyCareerFilters(query);
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -247,9 +179,7 @@ function Careers() {
   };
 
   const fetchRecommended = async () => {
-    const profileTerms = getProfileTerms();
-
-    if (profileTerms.length === 0) {
+    if (!profile) {
       setRecommended([]);
       return;
     }
@@ -258,27 +188,9 @@ function Careers() {
       .from("careers")
       .select("*")
       .order("created", { ascending: false })
-      .limit(1500);
+      .limit(20000);
 
-    if (filters.location) {
-      query = query.eq("state_source", filters.location);
-    }
-
-    if (filters.city) {
-      query = query.eq("location_city", filters.city);
-    }
-
-    if (filters.type) {
-      query = query.eq("job_type", filters.type);
-    }
-
-    if (filters.cluster) {
-      query = query.eq("career_cluster", filters.cluster);
-    }
-
-    if (filters.minSalary) {
-      query = query.gte("salary_min", Number(filters.minSalary));
-    }
+    query = applyCareerFilters(query);
 
     const { data, error } = await query;
 
@@ -287,31 +199,12 @@ function Careers() {
       return;
     }
 
-    const scoredJobs = data
-      .map((job) => scoreJob(job, profileTerms))
-      .filter((job) => job.qualifies)
-      .sort((a, b) => b.score - a.score);
-
-    const finalJobs = [];
-    const seenTitles = new Set();
-
-    for (const job of scoredJobs) {
-      const key = normalize(job.title);
-
-      if (!seenTitles.has(key)) {
-        seenTitles.add(key);
-        finalJobs.push(job);
-      }
-
-      if (finalJobs.length === 3) break;
-    }
-
-    setRecommended(finalJobs);
+    setRecommended(getTopCareerRecommendations(data, profile, 3));
   };
 
   useEffect(() => {
     fetchResults();
-  }, [page, searchQuery, filters]);
+  }, [page, searchQuery, filters, profile, recommendedMode]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -346,7 +239,10 @@ function Careers() {
 
   useEffect(() => {
     const loadCities = async () => {
-      const values = await fetchDistinctValues("location_city", filters.location);
+      const values = await fetchDistinctValues(
+        "location_city",
+        filters.location
+      );
       setCities(values);
     };
 
@@ -358,6 +254,7 @@ function Careers() {
   }, [profile, filters]);
 
   useEffect(() => {
+    if (recommendedMode) return;
     if (!hasMore || loading) return;
 
     const currentRef = observerRef.current;
@@ -382,10 +279,11 @@ function Careers() {
       observer.unobserve(currentRef);
       observer.disconnect();
     };
-  }, [hasMore, loading]);
+  }, [hasMore, loading, recommendedMode]);
 
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
+    setRecommendedMode(false);
     setPage(1);
     setResults([]);
   };
@@ -416,6 +314,20 @@ function Careers() {
       minSalary: ""
     });
     setSearchQuery("");
+    setRecommendedMode(false);
+    setPage(1);
+    setResults([]);
+  };
+
+  const showRecommendedMode = () => {
+    setRecommendedMode(true);
+    setSearchQuery("");
+    setPage(1);
+    setResults([]);
+  };
+
+  const showAllJobs = () => {
+    setRecommendedMode(false);
     setPage(1);
     setResults([]);
   };
@@ -479,13 +391,30 @@ function Careers() {
         </select>
 
         <button onClick={clearFilters}>Clear Filters</button>
+
+        {user && !recommendedMode && (
+          <button onClick={showRecommendedMode}>Recommended Jobs</button>
+        )}
+
+        {recommendedMode && (
+          <button onClick={showAllJobs}>Show All Jobs</button>
+        )}
       </div>
 
       <p className="results-count">
-        Showing {start}-{end} of {totalCount} jobs
+        {recommendedMode
+          ? `Showing ${end} recommended jobs`
+          : `Showing ${start}-${end} of ${totalCount} jobs`}
       </p>
 
-      {user && recommended.length > 0 && (
+      {recommendedMode && (
+        <div className="recommended-mode-banner">
+          <h2>Recommended Careers For You</h2>
+          <p>These jobs are ranked using your majors, minors, and skills.</p>
+        </div>
+      )}
+
+      {!recommendedMode && user && recommended.length > 0 && (
         <div className="recommended">
           <h2>Careers You May Be Interested In</h2>
 
