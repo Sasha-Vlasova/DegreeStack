@@ -34,10 +34,12 @@ export default function GeneratePreview({ template }) {
       <html>
         <body style="margin:0; padding:0; background:white;">
           <div style="
-            width: 850px;
+            width: 800px;
+            height: 1100px;
             padding: 40px;
             margin: 0 auto;
             background: white;
+            overflow: hidden;
             font-family: Arial, sans-serif;
           ">
             ${html}
@@ -58,7 +60,7 @@ export default function GeneratePreview({ template }) {
       iframe.contentDocument.write(wrappedHTML);
       iframe.contentDocument.close();
     } catch (err) {
-      console.error("IFRAME WRITE ERROR:", err);
+      //console.error("IFRAME WRITE ERROR:", err);
       setLoading(false);
       return;
     }
@@ -70,11 +72,13 @@ export default function GeneratePreview({ template }) {
     let canvas;
     try {
       canvas = await html2canvas(iframe.contentDocument.body, {
-        scale: 1,
+        width: 800,
+        height: 1100,
+        scale: 2,
         useCORS: true,
       });
     } catch (err) {
-      console.error("HTML2CANVAS ERROR:", err);
+      //console.error("HTML2CANVAS ERROR:", err);
       setLoading(false);
       return;
     }
@@ -84,7 +88,7 @@ export default function GeneratePreview({ template }) {
     );
 
     if (!blob) {
-      console.error("BLOB ERROR: canvas.toBlob returned null");
+      //console.error("BLOB ERROR: canvas.toBlob returned null");
       setLoading(false);
       return;
     }
@@ -100,7 +104,7 @@ export default function GeneratePreview({ template }) {
       });
 
     if (uploadError) {
-      console.error("UPLOAD ERROR:", uploadError);
+      //console.error("UPLOAD ERROR:", uploadError);
       setLoading(false);
       return;
     }
@@ -111,20 +115,20 @@ export default function GeneratePreview({ template }) {
       .getPublicUrl(filePath);
 
     const previewUrl = urlData.publicUrl;
-    console.log("Preview URL:", previewUrl);
+    //console.log("Preview URL:", previewUrl);
 
     // 8. Update DB
     const { error: updateError } = await supabase
       .from("resume_templates")
       .update({ preview_url: previewUrl })
       .eq("id", template.id);
-
+/*
     if (updateError) {
       console.error("UPDATE ERROR:", updateError);
     } else {
       console.log("Preview URL saved to DB");
     }
-
+*/
     // 9. Cleanup
     document.body.removeChild(iframe);
     setLoading(false);

@@ -11,54 +11,33 @@ export default function Resume() {
 
   useEffect(() => {
     async function loadTemplates() {
-      // 1) Load ALL templates
-      const { data: templates, error: tmplError } = await supabase
+      const { data: templates, error } = await supabase
         .from("resume_templates")
         .select(`
           id,
           name,
+          preview_url,
           category_id,
           resume_categories ( name )
         `);
 
-      if (tmplError) {
-        console.error("Error loading templates:", tmplError);
-        return;
-      }
+      if (error) return console.error(error);
 
-      // If no user → show all as others
       if (!user) {
         setRecommended([]);
         setOthers(templates || []);
         return;
       }
 
-      // 2) Load user profile
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from("user_profiles")
         .select("major, minors")
         .eq("user_id", user.id)
         .single();
 
-      if (profileError) {
-        console.error("Error loading profile:", profileError);
-        setRecommended([]);
-        setOthers(templates || []);
-        return;
-      }
-
-      // 3) Parse majors + minors safely
-      const majors = profile?.major
-        ? profile.major.split(",").map(m => m.trim()).filter(Boolean)
-        : [];
-
-      const minors = profile?.minors
-        ? profile.minors.split(",").map(m => m.trim()).filter(Boolean)
-        : [];
-
+      const majors = profile?.major?.split(",").map(m => m.trim()) || [];
+      const minors = profile?.minors?.split(",").map(m => m.trim()) || [];
       const allPrograms = [...majors, ...minors];
-
-      console.log("Programs:", allPrograms);
 
       if (allPrograms.length === 0) {
         setRecommended([]);
@@ -66,47 +45,22 @@ export default function Resume() {
         return;
       }
 
-      // 4) Quote values safely
       const quoted = allPrograms.map(p => `"${p}"`).join(",");
 
-      // 5) FIXED .or() QUERY (single line, no spaces/newlines)
-      const { data: matchedCategories, error: catError } = await supabase
+      const { data: matched } = await supabase
         .from("resume_fields")
         .select("category_id")
         .or(`major_name.in.(${quoted}),minor_name.in.(${quoted})`);
 
-      if (catError) {
-        console.error("Error loading categories:", catError);
-        setRecommended([]);
-        setOthers(templates || []);
-        return;
-      }
+      const categoryIds = [...new Set(matched?.map(c => String(c.category_id)) || [])];
 
-      console.log("Matched categories:", matchedCategories);
-
-      if (!matchedCategories || matchedCategories.length === 0) {
-        setRecommended([]);
-        setOthers(templates || []);
-        return;
-      }
-
-      // 6) Unique category IDs (safe string conversion)
-      const categoryIds = [
-        ...new Set(matchedCategories.map(c => String(c.category_id)))
-      ];
-
-      console.log("Category IDs:", categoryIds);
-
-      // 7) Split templates safely
-      const recommendedTemplates = (templates || []).filter(t =>
+      const recommendedTemplates = templates.filter(t =>
         categoryIds.includes(String(t.category_id))
       );
 
-      const otherTemplates = (templates || []).filter(
+      const otherTemplates = templates.filter(
         t => !categoryIds.includes(String(t.category_id))
       );
-
-      console.log("Recommended:", recommendedTemplates);
 
       setRecommended(recommendedTemplates);
       setOthers(otherTemplates);
@@ -115,102 +69,127 @@ export default function Resume() {
     loadTemplates();
   }, [user]);
 
+  // -----------------------------
+  // Hover Card Component
+  // -----------------------------
+  function HoverCard({ children, onClick }) {
+    const [hover, setHover] = useState(false);
+
+    const style = {
+      background: "#ffffff15",
+      borderRadius: "14px",
+      overflow: "hidden",
+      cursor: "pointer",
+      transition: "transform 0.25s ease, box-shadow 0.25s ease",
+      border: "1px solid #ffffff20",
+      boxShadow: hover
+        ? "0 8px 20px rgba(0,0,0,0.25)"
+        : "0 4px 12px rgba(0,0,0,0.15)",
+      transform: hover ? "translateY(-6px)" : "translateY(0)",
+    };
+
+    return (
+      <div
+        style={style}
+        onClick={onClick}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+      >
+        {children}
+      </div>
+    );
+  }
+
+  // -----------------------------
+  // Styles
+  // -----------------------------
+  const gridStyle = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+    gap: "28px",
+  };
+
+  const ratioBox = {
+    position: "relative",
+    width: "100%",
+    paddingTop: "80%", 
+    //background: "#111",
+    overflow: "hidden",
+  };
+
+  const imgStyle = {
+    position: "absolute",
+    top: "0%",
+    left: 0,
+    width: "100%",
+    height: "120%",
+    objectFit: "cover",
+    objectPosition: "center top",
+  };
+
+  const overlayStyle = {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    padding: "15px 12px",
+    background: "linear-gradient(to top,#ff9c00, rgba(0,0,0,0.75))",
+    color: "white",
+    fontSize: "17px",
+    fontWeight: "600",
+    textAlign: "center",
+  };
+
+  // -----------------------------
+  // JSX
+  // -----------------------------
   return (
-    <div style={{ padding: "24px", color: "#ffffff" }}>
-      
+    <div style={{ padding: "32px", color: "white" }}>
+
+      {/* Highly Recommended */}
       {user && recommended.length > 0 && (
         <>
-          <h2>Highly Recommended</h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-              gap: "16px"
-            }}
-          >
-            {recommended.map(t => (
-              <div
-                key={t.id}
-                onClick={() => navigate(`/resume/builder/${t.id}`)}
-                style={{
-                  padding: "16px",
-                  border: "1px solid #ddd",
-                  borderRadius: "10px",
-                  background: "white",
-                  cursor: "pointer",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: "18px",
-                    color: "#222",
-                    fontWeight: "700",
-                    margin: 0
-                  }}
-                >
-                  {t.resume_categories?.name || "Uncategorized"}
-                </p>
+          <h2 style={{ marginBottom: "20px", fontSize: "26px", fontWeight: "700" }}>
+            Highly Recommended
+          </h2>
 
-                <h3
-                  style={{
-                    marginTop: "6px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#444"
-                  }}
-                >
-                  {t.name}
-                </h3>
-              </div>
+          <div style={gridStyle}>
+            {recommended.map(t => (
+              <HoverCard key={t.id} onClick={() => navigate(`/resume/builder/${t.id}`)}>
+                 <div className="resume-preview-wrapper" style={ratioBox}>
+                  <img
+                    src={`${t.preview_url}?t=${Date.now()}`}
+                    alt=""
+                    style={imgStyle}
+                  />
+                  <div className="resume-preview-overlay" style={overlayStyle}>
+                    {t.resume_categories?.name}
+                  </div>
+                </div>
+              </HoverCard>
             ))}
           </div>
         </>
       )}
 
-      <h2 style={{ marginTop: "32px", color: "#ffffff" }}>All Templates</h2>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-          gap: "16px"
-        }}
-      >
-        {others.map(t => (
-          <div
-            key={t.id}
-            onClick={() => navigate(`/resume/builder/${t.id}`)}
-            style={{
-              padding: "16px",
-              border: "1px solid #ddd",
-              borderRadius: "10px",
-              background: "white",
-              cursor: "pointer",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-            }}
-          >
-            <p
-              style={{
-                fontSize: "18px",
-                color: "#ff9c00",
-                fontWeight: "700",
-                margin: 0
-              }}
-            >
-              {t.resume_categories?.name || "Uncategorized"}
-            </p>
+      {/* All Templates */}
+      <h2 style={{ marginTop: "50px", marginBottom: "20px", fontSize: "26px", fontWeight: "700" }}>
+        All Templates
+      </h2>
 
-            <h3
-              style={{
-                marginTop: "6px",
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "#444"
-              }}
-            >
-              {t.name}
-            </h3>
-          </div>
+      <div style={gridStyle}>
+        {others.map(t => (
+          <HoverCard key={t.id} onClick={() => navigate(`/resume/builder/${t.id}`)}>
+            <div className="resume-preview-wrapper" style={ratioBox}>
+              <img
+                src={`${t.preview_url}?t=${Date.now()}`}
+                alt=""
+                style={imgStyle}
+              />
+              <div className="resume-preview-overlay" style={overlayStyle}>
+                {t.resume_categories?.name}
+              </div>
+            </div>
+          </HoverCard>
         ))}
       </div>
     </div>

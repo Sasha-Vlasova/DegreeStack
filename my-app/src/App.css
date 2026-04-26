@@ -1,14 +1,15 @@
 html, body, #root {
   height: 100%;
   margin: 0;
+  background: #1e3c72; /* normal mode background */
+  color: white;
 }
 
 .app-container {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: linear-gradient(135deg, #1e3c72, #2a5298);
-}
+  }
 
 .app-content {
   flex: 1;
@@ -38,90 +39,100 @@ button {
 button:hover {
   background-color: #e0e0e0;
 }
+/* ============================= */
+/* HIGH CONTRAST MODE — FIXED    */
+/* ============================= */
 
-
-/* HIGH CONTRAST MODE — WARM SLATE */
 .high-contrast {
-  --accent: #F9AB00;        /* Warm gold accent */
-  --bg: #202124;            /* Warm slate background */
-  --text: #F1F3F4;          /* Soft light text */
- /* --bubble-bg: rgba(146, 146, 146, 0.87); 
+  --accent: #F9AB00;
+  --bg: #202124;
+  --text: #F1F3F4;
   --button-bg: #2C2D30;
   --button-bg-hover: #3A3B3E;
-  --border: #3C4043;*/
+  --border: #3C4043;
 }
 
-/* Global background + text */
+/* Apply ONLY to layout (NOT divs!) */
 .high-contrast body,
 .high-contrast #root,
 .high-contrast .app-container {
-  background: var(--bg) !important;
-  color: var(--text) !important;
+  background: var(--bg);
+  color: var(--text);
+}
+:root {
+  --bg: #1e3c72;
+  --surface: rgba(0,0,0,0.85);
+  --surface-2: #2A2B2E;
+  --text: white;
+  --border: #444;
+  --accent: orange;
+}
+.nav,
+.footer {
+  background: var(--surface);
+  color: var(--text);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+  border-bottom: 1px solid var(--border);
+}
+
+.footer {
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+/* Text */
+.high-contrast h1,
+.high-contrast h2,
+.high-contrast h3,
+.high-contrast h4,
+.high-contrast p,
+.high-contrast span,
+.high-contrast label {
+  color: var(--text);
 }
 
 /* Links */
 .high-contrast a {
-  color: var(--accent) !important;
-}
-.high-contrast a:hover {
-  text-decoration: underline;
+  color: var(--accent);
 }
 
-/* REQUIRED universal override (your constraint) */
-.high-contrast * {
-  background: var(--bg) !important;
-  color: var(--text) !important;
+/* Inputs */
+.high-contrast input,
+.high-contrast textarea,
+.high-contrast select {
+  background: #2C2D30;
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 /* Buttons */
 .high-contrast button,
 .high-contrast .nav-btn {
-  background: var(--button-bg) !important;
-  color: var(--text) !important;
-  border: 1px solid var(--border) !important;
-}
-.high-contrast button:hover,
-.high-contrast .nav-btn:hover {
-  background: var(--button-bg-hover) !important;
+  background: var(--button-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
-/* Navbar */
-.high-contrast .nav {
-  background: var(--bg) !important;
-  border-bottom: 1px solid var(--border) !important;
-  backdrop-filter: none !important;
+/* Navbar + Footer MATCH */
+.high-contrast .nav,
+.high-contrast .footer {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: var(--border);
 }
 
-/* High contrast bubble overrides for Education page */
+/* Cards */
+.high-contrast .profile,
+.high-contrast .profile-recommendations,
 .high-contrast .result-item {
-  background: #2A2B2E !important;   /* lighter grey bubble */
-  color: var(--text) !important;
-  border: 1px solid #3C4043 !important;
-  border-radius: 10px !important;
+  background: #2A2B2E;
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
-/* Search filters container */
-.high-contrast .search-filters {
-  background: #2A2B2E !important;
-  border: 1px solid #3C4043 !important;
-  border-radius: 10px !important;
-  padding: 15px !important;
-}
-
-/* Inputs inside filters */
-.high-contrast .search-filters input,
-.high-contrast .search-filters select {
-  background: #2C2D30 !important;
-  color: var(--text) !important;
-  border: 1px solid #F9AB00 !important;
-}
-
-/* Buttons inside filters */
-.high-contrast .search-filters button {
-  background: #3A3B3E !important;
-  color: var(--text) !important;
-  border: 1px solid #F9AB00 !important;
-}
-.high-contrast .search-filters button:hover {
-  background: #4A4B4E !important;
+/* Resume stays white */
+.resume-preview-wrapper iframe {
+  background: white !important;
 }

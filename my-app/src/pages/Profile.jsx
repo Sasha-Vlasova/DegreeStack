@@ -35,11 +35,52 @@ function Profile() {
 
   const [recommended, setRecommended] = useState([]);
   const [recommendedCareers, setRecommendedCareers] = useState([]);
+  const [savedResumes, setSavedResumes] = useState([]);
+
+
+
+  const deleteResume = async (resumeId) => {
+    const confirmDelete = window.confirm("Delete this resume?");
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("user_resumes")
+      .delete()
+      .eq("id", resumeId);
+
+    if (!error) {
+      setSavedResumes((prev) =>
+        prev.filter((r) => r.id !== resumeId)
+      );
+    }
+  };
 
   useEffect(() => {
     fetchProfile();
     fetchProgramOptions();
   }, []);
+  useEffect(() => {
+  if (!user) return;
+
+  const fetchSavedResumes = async () => {
+    const { data: session } = await supabase.auth.getUser();
+    const realUser = session?.user;
+
+    if (!realUser) return;
+
+    const { data, error } = await supabase
+      .from("user_resumes")
+      .select("*")
+      .eq("user_id", realUser.id)
+      .order("updated_at", { ascending: false });
+
+    if (!error && data) setSavedResumes(data);
+  };
+
+  fetchSavedResumes();
+}, [user]);
+
+
 
   async function fetchProgramOptions() {
     let allPrograms = [];
@@ -327,6 +368,28 @@ function Profile() {
     });
   };
 
+  // Rename resume
+  const renameResume = async (resumeId, newName) => {
+    const { error } = await supabase
+      .from("user_resumes")
+      .update({ resume_name: newName })
+      .eq("id", resumeId);
+
+    if (!error) {
+      setSavedResumes((prev) =>
+        prev.map((r) =>
+          r.id === resumeId ? { ...r, resume_name: newName } : r
+        )
+      );
+    }
+  };
+
+
+
+
+
+
+
   const getWelcomeMessage = () => {
     if (formData.firstName && formData.lastName) {
       return `Welcome back, ${formData.firstName} ${formData.lastName}!`;
@@ -349,204 +412,261 @@ function Profile() {
     );
   }
 
-  return (
-    <div className="profile-layout">
-      <div className="profile-main profile">
-        <h1>{getWelcomeMessage()}</h1>
+  
+return (
+  <div className="profile-layout">
 
-        {!isEditing ? (
-          <div className="profile-view">
-            <p>
-              <strong>Name:</strong>{" "}
-              {formData.firstName || formData.lastName
-                ? `${formData.firstName} ${formData.lastName}`
-                : "Not provided yet"}
-            </p>
-            <p><strong>School:</strong> {formData.school || "Not provided yet"}</p>
-            <p><strong>Year:</strong> {formData.year || "Not provided yet"}</p>
-            <p><strong>Majors:</strong> {majors.join(", ") || "Not provided yet"}</p>
-            <p><strong>Minors:</strong> {minors.join(", ") || "Not provided yet"}</p>
-            <p><strong>Skills:</strong> {formData.skills || "Not provided yet"}</p>
-            <p><strong>Citizenship:</strong> {citizenships.join(", ") || "Not provided yet"}</p>
-            <button onClick={() => setIsEditing(true)}>Edit Profile</button>
-          </div>
+    {/* LEFT — RESUMES */}
+    <div className="profile-left">
+      <div className="profile-recommendations">
+        <h2>My Resumes</h2>
+
+        {savedResumes.length === 0 ? (
+          <p>No resumes yet. Start building one!</p>
         ) : (
-          <form onSubmit={handleSubmit} className="profile-edit">
-            <input name="firstName" placeholder="First Name" value={formData.firstName} onChange={handleChange} />
-            <input name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} />
-            <input name="school" placeholder="School" value={formData.school} onChange={handleChange} />
-            <input name="year" placeholder="Year" value={formData.year} onChange={handleChange} />
-            <input name="skills" placeholder="Skills" value={formData.skills} onChange={handleChange} />
+          <>
+            {savedResumes.map((r) => (
+              <div key={r.id} className="result-item">
+                <h4>
+                  {r.resume_name ||
+                    r.resume_templates?.name ||
+                    "Untitled Resume"}
+                </h4>
 
-            <label>Majors</label>
-            <div className="selected-countries">
-              {majors.map((major) => (
-                <span key={major} className="country-chip">
-                  {major}
-                  <button type="button" onClick={() => removeChip(major, majors, setMajors)}>x</button>
-                </span>
+                <p style={{ fontSize: "12px", opacity: 0.7 }}>
+                  Last updated:{" "}
+                  {new Date(r.updated_at).toLocaleDateString()}
+                </p>
+
+                <button
+                  onClick={() =>
+                    navigate(`/resume/builder/${r.template_id}`)
+                  }
+                >
+                  Open Resume
+                </button>
+
+
+                <button onClick={() => deleteResume(r.id)}>
+                  Delete
+                </button>
+
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* BUTTON */}
+        <button onClick={() => navigate("/resume")}>
+          Go to Resume Page
+        </button>
+      </div>
+    </div>
+
+    {/* CENTER — PROFILE (UNCHANGED) */}
+    <div className="profile-main profile">
+      <h1>{getWelcomeMessage()}</h1>
+
+      {!isEditing ? (
+        <div className="profile-view">
+          <p>
+            <strong>Name:</strong>{" "}
+            {formData.firstName || formData.lastName
+              ? `${formData.firstName} ${formData.lastName}`
+              : "Not provided yet"}
+          </p>
+          <p><strong>School:</strong> {formData.school || "Not provided yet"}</p>
+          <p><strong>Year:</strong> {formData.year || "Not provided yet"}</p>
+          <p><strong>Majors:</strong> {majors.join(", ") || "Not provided yet"}</p>
+          <p><strong>Minors:</strong> {minors.join(", ") || "Not provided yet"}</p>
+          <p><strong>Skills:</strong> {formData.skills || "Not provided yet"}</p>
+          <p><strong>Citizenship:</strong> {citizenships.join(", ") || "Not provided yet"}</p>
+          <button onClick={() => setIsEditing(true)}>Edit Profile</button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="profile-edit">
+          <input name="firstName" placeholder="First Name" value={formData.firstName} onChange={handleChange} />
+          <input name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} />
+          <input name="school" placeholder="School" value={formData.school} onChange={handleChange} />
+          <input name="year" placeholder="Year" value={formData.year} onChange={handleChange} />
+          <input name="skills" placeholder="Skills" value={formData.skills} onChange={handleChange} />
+
+          <label>Majors</label>
+          <div className="selected-countries">
+            {majors.map((major) => (
+              <span key={major} className="country-chip">
+                {major}
+                <button type="button" onClick={() => removeChip(major, majors, setMajors)}>x</button>
+              </span>
+            ))}
+          </div>
+
+          <input
+            type="text"
+            placeholder="Type a major..."
+            value={majorQuery}
+            onChange={(e) => setMajorQuery(e.target.value)}
+          />
+
+          {filteredMajorOptions.length > 0 && (
+            <ul className="country-dropdown">
+              {filteredMajorOptions.map((option) => (
+                <li
+                  key={option}
+                  className="country-option"
+                  onClick={() => addChip(option, majors, setMajors, setMajorQuery)}
+                >
+                  {option}
+                </li>
               ))}
-            </div>
-            <input
-              type="text"
-              placeholder="Type a major..."
-              value={majorQuery}
-              onChange={(e) => setMajorQuery(e.target.value)}
-            />
-            {filteredMajorOptions.length > 0 && (
-              <ul className="country-dropdown">
-                {filteredMajorOptions.map((option) => (
-                  <li
-                    key={option}
-                    className="country-option"
-                    onClick={() => addChip(option, majors, setMajors, setMajorQuery)}
-                  >
-                    {option}
-                  </li>
-                ))}
-              </ul>
-            )}
+            </ul>
+          )}
 
-            <label>Minors</label>
-            <div className="selected-countries">
-              {minors.map((minor) => (
-                <span key={minor} className="country-chip">
-                  {minor}
-                  <button type="button" onClick={() => removeChip(minor, minors, setMinors)}>x</button>
-                </span>
+          <label>Minors</label>
+          <div className="selected-countries">
+            {minors.map((minor) => (
+              <span key={minor} className="country-chip">
+                {minor}
+                <button type="button" onClick={() => removeChip(minor, minors, setMinors)}>x</button>
+              </span>
+            ))}
+          </div>
+
+          <input
+            type="text"
+            placeholder="Type a minor..."
+            value={minorQuery}
+            onChange={(e) => setMinorQuery(e.target.value)}
+          />
+
+          {filteredMinorOptions.length > 0 && (
+            <ul className="country-dropdown">
+              {filteredMinorOptions.map((option) => (
+                <li
+                  key={option}
+                  className="country-option"
+                  onClick={() => addChip(option, minors, setMinors, setMinorQuery)}
+                >
+                  {option}
+                </li>
               ))}
-            </div>
-            <input
-              type="text"
-              placeholder="Type a minor..."
-              value={minorQuery}
-              onChange={(e) => setMinorQuery(e.target.value)}
-            />
-            {filteredMinorOptions.length > 0 && (
-              <ul className="country-dropdown">
-                {filteredMinorOptions.map((option) => (
-                  <li
-                    key={option}
-                    className="country-option"
-                    onClick={() => addChip(option, minors, setMinors, setMinorQuery)}
-                  >
-                    {option}
-                  </li>
-                ))}
-              </ul>
-            )}
+            </ul>
+          )}
 
-            <label>Citizenship</label>
-            <div className="selected-countries">
-              {citizenships.map((c) => (
-                <span key={c} className="country-chip">
-                  {c}
-                  <button type="button" onClick={() => removeChip(c, citizenships, setCitizenships)}>x</button>
-                </span>
+          <label>Citizenship</label>
+          <div className="selected-countries">
+            {citizenships.map((c) => (
+              <span key={c} className="country-chip">
+                {c}
+                <button type="button" onClick={() => removeChip(c, citizenships, setCitizenships)}>x</button>
+              </span>
+            ))}
+          </div>
+
+          <input
+            type="text"
+            placeholder="Type a country..."
+            value={countryQuery}
+            onChange={(e) => setCountryQuery(e.target.value)}
+          />
+
+          {countryResults.length > 0 && (
+            <ul className="country-dropdown">
+              {countryResults.map((country) => (
+                <li
+                  key={country}
+                  className="country-option"
+                  onClick={() =>
+                    addChip(country, citizenships, setCitizenships, setCountryQuery)
+                  }
+                >
+                  {country}
+                </li>
               ))}
-            </div>
-            <input
-              type="text"
-              placeholder="Type a country..."
-              value={countryQuery}
-              onChange={(e) => setCountryQuery(e.target.value)}
-            />
-            {countryResults.length > 0 && (
-              <ul className="country-dropdown">
-                {countryResults.map((country) => (
-                  <li
-                    key={country}
-                    className="country-option"
-                    onClick={() =>
-                      addChip(country, citizenships, setCitizenships, setCountryQuery)
-                    }
-                  >
-                    {country}
-                  </li>
-                ))}
-              </ul>
-            )}
+            </ul>
+          )}
 
-            <button type="submit">Save</button>
-          </form>
+          <button type="submit">Save</button>
+        </form>
+      )}
+    </div>
+
+    {/* RIGHT — EXACT ORIGINAL */}
+    <div className="profile-sidebar">
+      <div className="profile-recommendations">
+        <h2>Recommended Education</h2>
+
+        {recommended.length === 0 ? (
+          <p>No recommendations yet.</p>
+        ) : (
+          <>
+            {recommended.map((item) => (
+              <div key={item.id} className="result-item">
+                <h4>{item.title}</h4>
+                <p><strong>Level:</strong> {item.program_level}</p>
+                <p>
+                  <strong>Campuses:</strong>{" "}
+                  {item.program_campuses
+                    ?.map((pc) => pc.campuses?.name)
+                    .filter(Boolean)
+                    .join(", ") || "N/A"}
+                </p>
+              </div>
+            ))}
+            <button onClick={handleViewMore}>View More Education</button>
+          </>
         )}
       </div>
 
-      <div className="profile-sidebar">
-        <div className="profile-recommendations">
-          <h2>Recommended Education</h2>
+      <div className="profile-recommendations">
+        <h2>Recommended Careers</h2>
 
-          {recommended.length === 0 ? (
-            <p>No recommendations yet.</p>
-          ) : (
-            <>
-              {recommended.map((item) => (
-                <div key={item.id} className="result-item">
-                  <h4>{item.title}</h4>
-                  <p><strong>Level:</strong> {item.program_level}</p>
+        {recommendedCareers.length === 0 ? (
+          <p>No career recommendations yet.</p>
+        ) : (
+          <>
+            {recommendedCareers.map((job) => (
+              <div key={job.id} className="result-item">
+                <h4>{job.title}</h4>
+                <p><strong>Company:</strong> {job.company_name}</p>
+                <p>
+                  <strong>Location:</strong>{" "}
+                  {job.location_city || "N/A"}, {job.state_source || "N/A"}
+                </p>
+                <p><strong>Cluster:</strong> {job.career_cluster || "Other"}</p>
+                <p><strong>Type:</strong> {job.job_type || "N/A"}</p>
+
+                {job.salary_min !== null && job.salary_min !== undefined && (
                   <p>
-                    <strong>Campuses:</strong>{" "}
-                    {item.program_campuses
-                      ?.map((pc) => pc.campuses?.name)
-                      .filter(Boolean)
-                      .join(", ") || "N/A"}
+                    <strong>Min Salary:</strong>{" "}
+                    {Number(job.salary_min) > 0
+                      ? `$${Number(job.salary_min).toLocaleString()}`
+                      : "Not Listed"}
                   </p>
-                </div>
-              ))}
-              <button onClick={handleViewMore}>View More Education</button>
-            </>
-          )}
-        </div>
+                )}
 
-        <div className="profile-recommendations">
-          <h2>Recommended Careers</h2>
-
-          {recommendedCareers.length === 0 ? (
-            <p>No career recommendations yet.</p>
-          ) : (
-            <>
-              {recommendedCareers.map((job) => (
-                <div key={job.id} className="result-item">
-                  <h4>{job.title}</h4>
-                  <p><strong>Company:</strong> {job.company_name}</p>
+                {job.job_url && (
                   <p>
-                    <strong>Location:</strong>{" "}
-                    {job.location_city || "N/A"}, {job.state_source || "N/A"}
+                    <strong>View Job:</strong>{" "}
+                    <a
+                      href={job.job_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="career-link"
+                    >
+                      Apply
+                    </a>
                   </p>
-                  <p><strong>Cluster:</strong> {job.career_cluster || "Other"}</p>
-                  <p><strong>Type:</strong> {job.job_type || "N/A"}</p>
-
-                  {job.salary_min !== null && job.salary_min !== undefined && (
-                    <p>
-                      <strong>Min Salary:</strong>{" "}
-                      {Number(job.salary_min) > 0
-                        ? `$${Number(job.salary_min).toLocaleString()}`
-                        : "Not Listed"}
-                    </p>
-                  )}
-
-                  {job.job_url && (
-                    <p>
-                      <strong>View Job:</strong>{" "}
-                      <a
-                        href={job.job_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="career-link"
-                      >
-                        Apply
-                      </a>
-                    </p>
-                  )}
-                </div>
-              ))}
-              <button onClick={handleViewMoreCareers}>View More Careers</button>
-            </>
-          )}
-        </div>
+                )}
+              </div>
+            ))}
+            <button onClick={handleViewMoreCareers}>
+              View More Careers
+            </button>
+          </>
+        )}
       </div>
     </div>
-  );
-}
-
-export default Profile;
+  </div>
+);
+}export default Profile;

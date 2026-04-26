@@ -13,9 +13,13 @@ function Authorization() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+
   // validation:
   const [errors, setErrors] = useState({ email: "", password: "" });
   
+
   // -------------------------
   // Email/password login
   // -------------------------
@@ -116,9 +120,11 @@ function Authorization() {
           />
           {errors.email && <div style={styles.error}>{errors.email}</div>}
 
-          <label style={styles.label}>Password</label>
+        <label style={styles.label}>Password</label>
+
+        <div className="password-wrapper">
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             style={{
@@ -126,7 +132,18 @@ function Authorization() {
               borderColor: errors.password ? "#d32f2f" : "#ccc",
             }}
           />
-          {errors.password && <div style={styles.error}>{errors.password}</div>}
+
+          <button
+            type="button"
+            className="eye-btn"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? "🙈" : "👁️"}
+          </button>
+        </div>
+
+        {errors.password && <div style={styles.error}>{errors.password}</div>}
+
 
           <label style={styles.checkboxLabel}>
             <input

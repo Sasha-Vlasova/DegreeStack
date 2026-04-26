@@ -5,38 +5,49 @@ body {
   min-height: 100vh;
 }
 
+/* ============================= */
+/* MAIN LAYOUT (FIXED)           */
+/* ============================= */
+
 .profile-layout {
-  position: relative;
-  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 30px;
   margin: 60px auto;
   padding: 0 20px;
+  align-items: flex-start;
 }
 
+/* LEFT COLUMN (RESUMES) */
+.profile-left {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* CENTER COLUMN */
 .profile-main {
   width: 700px;
-  margin: 0 auto;
 }
+
+/* RIGHT COLUMN */
+.profile-sidebar {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ============================= */
+/* CARDS                         */
+/* ============================= */
 
 .profile {
   background: white;
   border-radius: 16px;
   padding: 35px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-}
-
-.profile-edit {
-  display: flex;
-  flex-direction: column;
-}
-
-.profile-sidebar {
-  position: absolute;
-  top: 0;
-  left: calc(50% + 390px);
-  width: 420px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
 }
 
 .profile-recommendations {
@@ -47,6 +58,10 @@ body {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   box-sizing: border-box;
 }
+
+/* ============================= */
+/* TEXT                          */
+/* ============================= */
 
 .profile h1 {
   margin-top: 0;
@@ -74,6 +89,10 @@ body {
   color: #2a5298;
 }
 
+/* ============================= */
+/* BUTTONS                       */
+/* ============================= */
+
 .profile button,
 .profile-recommendations button,
 .view-more-btn {
@@ -94,6 +113,10 @@ body {
   background-color: #2a5298;
 }
 
+/* ============================= */
+/* INPUTS                        */
+/* ============================= */
+
 .profile input,
 .profile textarea {
   width: 100%;
@@ -111,6 +134,10 @@ body {
   border-color: #1e3c72;
   box-shadow: 0 0 5px rgba(30, 60, 114, 0.4);
 }
+
+/* ============================= */
+/* RESULT ITEMS (CAREERS + EDU)  */
+/* ============================= */
 
 .result-item {
   padding: 12px 0;
@@ -133,6 +160,7 @@ body {
   color: #555;
 }
 
+/* clickable links */
 .program-link,
 .career-link {
   color: orange;
@@ -144,6 +172,10 @@ body {
 .career-link:hover {
   text-decoration: underline;
 }
+
+/* ============================= */
+/* CHIP INPUTS                   */
+/* ============================= */
 
 .selected-countries {
   display: flex;
@@ -173,6 +205,7 @@ body {
   font-weight: bold;
 }
 
+/* dropdown */
 .country-dropdown {
   list-style: none;
   margin: 0;
@@ -197,42 +230,92 @@ body {
   background: #f0f0f0;
 }
 
-.checkbox-box {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #555;
-  border-radius: 4px;
+/* ============================= */
+/* CARD STYLE (HOVER EFFECTS)    */
+/* ============================= */
+
+.profile-recommendations .result-item {
   background: #fff;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 1px solid #eee;
+  transition: 0.2s ease;
 }
 
-.country-option:hover .checkbox-box::before {
-  content: "✓";
-  color: #555;
+.profile-recommendations .result-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
 }
+
+.profile-recommendations .result-item h4 {
+  margin: 0 0 6px 0;
+  color: #1e3c72;
+}
+
+.profile-recommendations .result-item button {
+  margin-top: 10px;
+  width: 100%;
+}
+
+/* ============================= */
+/* HIGH CONTRAST MODE            */
+/* ============================= */
+
+.high-contrast .profile {
+  background: #2A2B2E;
+  color: var(--text);
+}
+
+.high-contrast .profile-recommendations {
+  background: #2A2B2E;
+}
+
+.high-contrast .profile h1,
+.high-contrast .profile-recommendations h2 {
+  color: var(--text);
+}
+
+.high-contrast .profile p {
+  color: var(--text);
+}
+
+.high-contrast .profile strong {
+  color: var(--accent);
+}
+
+.high-contrast .result-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.high-contrast .country-chip {
+  background: #3A3B3E;
+  color: var(--text);
+}
+
+.high-contrast .country-dropdown {
+  background: #2C2D30;
+  border: 1px solid var(--border);
+}
+
+.high-contrast .country-option:hover {
+  background: #3A3B3E;
+}
+
+/* ============================= */
+/* RESPONSIVE                    */
+/* ============================= */
 
 @media (max-width: 1100px) {
   .profile-layout {
-    display: flex;
     flex-direction: column;
     align-items: center;
   }
 
-  .profile-main {
-    width: 100%;
-    max-width: 700px;
-  }
-
+  .profile-left,
+  .profile-main,
   .profile-sidebar {
-    position: static;
     width: 100%;
     max-width: 700px;
-    margin-top: 20px;
-  }
-
-  .profile-recommendations {
-    width: 100%;
   }
 }
