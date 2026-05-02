@@ -40,38 +40,54 @@ button:hover {
   background-color: #e0e0e0;
 }
 /* ============================= */
-/* HIGH CONTRAST MODE — FIXED    */
+/* HIGH CONTRAST MODE — IMPROVED */
 /* ============================= */
 
-.high-contrast {
-  --accent: #F9AB00;
-  --bg: #202124;
-  --text: #F1F3F4;
-  --button-bg: #2C2D30;
-  --button-bg-hover: #3A3B3E;
-  --border: #3C4043;
+/* THEME VARIABLES */
+:root {
+  --bg: #1b2a41;
+  --surface: rgba(10, 12, 16, 0.88);
+
+
+  --text: #f4f6f8;
+  --muted: #c9d1d9;
+
+  --border: #3a3f46;
+
+  --accent: #ffb020;
+  --accent-hover: #ffcc66;
 }
 
-/* Apply ONLY to layout (NOT divs!) */
-.high-contrast body,
-.high-contrast #root,
+.high-contrast {
+  --bg: #181a1b;
+  --surface: rgba(20, 22, 26, 0.92);
+
+
+  --text: #f2f4f6;
+  --muted: #b8c0cc;
+
+  --border: #333a42;
+
+  --accent: #ffb84d;
+  --accent-hover: #ffd480;
+
+  --button-bg: #262a30;
+  --button-bg-hover: #323844;
+}
+
+/* LAYOUT ONLY */
+body.high-contrast,
 .high-contrast .app-container {
   background: var(--bg);
   color: var(--text);
 }
-:root {
-  --bg: #1e3c72;
-  --surface: rgba(0,0,0,0.85);
-  --surface-2: #2A2B2E;
-  --text: white;
-  --border: #444;
-  --accent: orange;
-}
+
+/* NAV + FOOTER */
 .nav,
 .footer {
   background: var(--surface);
   color: var(--text);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(6px);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -83,7 +99,8 @@ button:hover {
   border-top: 1px solid var(--border);
   border-bottom: none;
 }
-/* Text */
+
+/* TEXT */
 .high-contrast h1,
 .high-contrast h2,
 .high-contrast h3,
@@ -92,23 +109,29 @@ button:hover {
 .high-contrast span,
 .high-contrast label {
   color: var(--text);
+  text-decoration: none;
 }
 
-/* Links */
+/* LINKS */
 .high-contrast a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.high-contrast a:hover {
   color: var(--accent);
 }
 
-/* Inputs */
+/* INPUTS */
 .high-contrast input,
 .high-contrast textarea,
 .high-contrast select {
-  background: #2C2D30;
+  background: var(--surface-2);
   color: var(--text);
   border: 1px solid var(--border);
 }
 
-/* Buttons */
+/* BUTTONS */
 .high-contrast button,
 .high-contrast .nav-btn {
   background: var(--button-bg);
@@ -116,23 +139,45 @@ button:hover {
   border: 1px solid var(--border);
 }
 
-/* Navbar + Footer MATCH */
+.high-contrast button:hover {
+  background: var(--button-bg-hover);
+}
+
+/* NAV + FOOTER OVERRIDE IN HC */
 .high-contrast .nav,
 .high-contrast .footer {
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--surface);
   border-color: var(--border);
 }
 
-/* Cards */
+/* CARDS */
 .high-contrast .profile,
 .high-contrast .profile-recommendations,
 .high-contrast .result-item {
-  background: #2A2B2E;
+  background: var(--surface-2);
   color: var(--text);
   border: 1px solid var(--border);
 }
 
-/* Resume stays white */
-.resume-preview-wrapper iframe {
-  background: white !important;
+/* ============================= */
+/* GLOBAL FALLBACK (SAFE)        */
+/* ============================= */
+
+/* Prevent aggressive inheritance issues */
+body.high-contrast *:not(.resume-preview-wrapper):not(.resume-preview-wrapper *):not(.resume-builder iframe) {
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* Only apply background if missing */
+body.high-contrast *:not(.nav):not(.footer):not(.profile):not(.profile-recommendations):not(.result-item):not(button):not(input):not(textarea):not(select):not(.resume-preview-wrapper):not(.resume-preview-wrapper *):not(.resume-builder iframe) {
+  background: var(--bg) !important;
+}
+
+/* ============================= */
+/* RESUME PREVIEW (PROTECTED)    */
+/* ============================= */
+
+body.high-contrast .resume-builder iframe {
+  background: #ffffff !important;
 }

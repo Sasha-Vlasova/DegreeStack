@@ -295,7 +295,10 @@ export default function ResumeBuilder() {
 
 
 return (
-  <div style={{ display: "flex", gap: "24px", padding: "24px", color: "orange" }}>
+  <div
+    className="resume-builder"
+    style={{ display: "flex", gap: "24px", padding: "24px", color: "orange" }}
+  >
 
 
     {/* LEFT SIDE */}
