@@ -139,9 +139,6 @@ export default function Resume() {
     textAlign: "center",
   };
 
-  // -----------------------------
-  // JSX
-  // -----------------------------
   return (
     <div style={{ padding: "32px", color: "white" }}>
 
