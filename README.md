@@ -128,49 +128,6 @@ src/
  ├── supabase.jsx     # Supabase client
  └── App.jsx          # Routing
 ```
-
----
-
-## Setup Instructions
-
-### 1. Clone repository
-
-```bash
-git clone <repo-url>
-cd DegreeStack
-```
-
-### 2. Install dependencies
-
-```bash
-npm install
-```
-
-### 3. Setup environment variables
-
-Create a `.env` file:
-
-```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
----
-
-### 4. Run development server
-
-```bash
-npm run dev
-```
-
----
-
-### 5. Build for production
-
-```bash
-npm run build
-```
-
 ---
 
 ## Key Design Principles
@@ -178,21 +135,14 @@ npm run build
 * Modular resume engine design (template-based rendering)
 * Relational database structure for academic + career data
 * JSONB flexibility for dynamic resume and program fields
-* Separation of concerns between:
-
-  * UI pages
-  * Business logic (resume engine)
-  * Data access (Supabase layer)
 
 ---
 
 ## Known Areas for Improvement
 
 * Reduce frontend bundle size via code splitting
-* Remove unused or legacy files
-* Improve schema consistency (some legacy fields exist)
-* Add stronger indexing for large dataset queries (careers/programs)
 * Improve error handling and loading states in UI
+* Improve Security
 
 ---
 
