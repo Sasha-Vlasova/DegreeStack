@@ -49,7 +49,6 @@ The platform also includes tools to support the application process. Visitors ca
 
   * Job title and company
   * Salary range
-  * Required skills
   * Job type (Full-time, Internship, etc.)
   * Category and career cluster
 * Designed for filtering and recommendation-style queries
