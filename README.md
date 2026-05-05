@@ -129,7 +129,7 @@ src/
 
 scripts/
 ├── update_education.py # Fetches and updates Wisconsin program data
-├── update_minnesota.py # Fetches amd updates Minnesota program data
+├── update_minnesota.py # Fetches and updates Minnesota program data
 └── update_careers.py # Fetches and updates job/career listings
 ```
 ---
